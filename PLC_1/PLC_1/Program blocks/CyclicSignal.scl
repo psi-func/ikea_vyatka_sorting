@@ -1,0 +1,37 @@
+﻿FUNCTION_BLOCK "CyclicSignal"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      count : Int;   // количество полусекунд
+      Meandr_counter : Int;   // счетчик меандра
+   END_VAR
+
+   VAR_OUTPUT 
+      meandr : Bool;
+      change : Bool;
+   END_VAR
+
+   VAR 
+      trig_cycled : Bool;
+      Memento_counter : Int;
+   END_VAR
+
+   VAR_TEMP 
+      on_cond : Bool;
+   END_VAR
+
+
+BEGIN
+	#on_cond := #Meandr_counter MOD #count = 0;
+	
+	#change := FALSE;
+	
+	IF (#on_cond AND NOT #trig_cycled) THEN
+	    #change := TRUE;
+	    #meandr := NOT #meandr;
+	    #Memento_counter := #Meandr_counter;
+	END_IF;
+	
+	#trig_cycled := (#trig_cycled OR #on_cond) AND (#Meandr_counter = #Memento_counter);
+END_FUNCTION_BLOCK
+

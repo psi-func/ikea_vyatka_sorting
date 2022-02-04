@@ -1,0 +1,30 @@
+﻿FUNCTION_BLOCK "Button_ShortTap"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      Sig : Bool;
+      set_Response_Time : Time;
+   END_VAR
+
+   VAR_OUTPUT 
+      Out : Bool;
+      fixed_tap : Bool;
+   END_VAR
+
+   VAR 
+      Response_Timer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+   END_VAR
+
+
+BEGIN
+	#Out := FALSE;
+	
+	#Response_Timer(IN:=#Sig AND NOT #fixed_tap,
+	                PT:=#set_Response_Time
+	);
+	
+	#fixed_tap := (#fixed_tap OR #Response_Timer.Q) AND #Sig;
+	
+	#Out := #Response_Timer.Q;
+END_FUNCTION_BLOCK
+

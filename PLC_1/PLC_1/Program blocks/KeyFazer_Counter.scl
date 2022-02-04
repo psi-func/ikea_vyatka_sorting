@@ -1,0 +1,70 @@
+﻿FUNCTION_BLOCK "KeyFazer_Counter"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      NewWheel : Bool;   // сигнал о новом колесе
+      RealChain : Bool;   // ныне проходящая цепь
+      KeyFazerSignal : Bool;   // актуальный сигнал детекции
+      PlankSensor : Bool;   // датчик-детектор доски на слой ПФМ
+      AwaitedChain : Bool;   // ожидаемая цепь, на которой должны увидеть и посчитать доску
+      Reset_count : Bool;   // сброс счета
+      Reset_alarms : Bool;   // сброс ошибки
+      PT : Int;   // пресет счета
+   END_VAR
+
+   VAR_OUTPUT 
+      AlarmCount : Bool;   // ошибка счета
+      Counted_one : Bool;   // доска была посчитана
+   END_VAR
+
+   VAR_IN_OUT 
+      "Counter" : Int;   // счетчик
+   END_VAR
+
+   VAR 
+      PlankCounted : Bool;   // доска посчитана на текущей цепи
+      PlankSensor_old : Bool;
+      PlankSensor_filter {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+   END_VAR
+
+   VAR_TEMP 
+      Plank_front : Bool;
+   END_VAR
+
+   VAR CONSTANT 
+      filterDelay : Time := T#100ms;
+   END_VAR
+
+
+BEGIN
+	#Counted_one := FALSE;
+	
+	#PlankSensor_filter(IN:=#PlankSensor,
+	                    PT:=#filterDelay);
+	
+	// Захватываем передний фронт доски каждый новый цикл на цепи по кейфазеру
+	// 
+	#Plank_front := #PlankSensor_filter.Q AND NOT #PlankSensor_old;
+	
+	// Ловим фронты
+	#PlankSensor_old := #PlankSensor_filter.Q;
+	
+	//Если поймали фронт сигнала доски на данном периоде и на данном периоде она еще не была посчитана, значит все хорошо, увеличим счет
+	IF (#Plank_front AND NOT #PlankCounted AND #Counter < #PT) THEN
+	      #Counter := #Counter + 1;
+	      #Counted_one := TRUE;
+	END_IF;
+	
+	// Протестирую позже
+	//#AlarmCount := (#AlarmCount OR (#PlankFront_catch_trig AND #RealChain <> #AwaitedChain));
+	  
+	#PlankCounted := (#PlankCounted OR #Plank_front) AND NOT #NewWheel;
+	
+	IF (#Reset_count) THEN
+	    #Counter := 0;
+	END_IF;
+	
+	
+END_FUNCTION_BLOCK
+

@@ -1,0 +1,24 @@
+﻿FUNCTION "Rev_G" : Int
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      g_code : Byte;   // число (Код Грея)
+   END_VAR
+
+   VAR_TEMP 
+      n : Byte;
+   END_VAR
+
+
+BEGIN
+	#n := 0;
+	
+	WHILE NOT (#g_code = 0) DO
+	    // Statement section WHILE
+	    #n := #n XOR #g_code;
+	    #g_code := SHR(IN := #g_code, N := 1);
+	END_WHILE;
+	
+	#Rev_G := BYTE_TO_INT(#n);
+END_FUNCTION
+

@@ -1,0 +1,58 @@
+﻿FUNCTION_BLOCK "BobDropper_CNTL"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      bobFront { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} : Bool;
+      boardSig : Bool;   // сигнал наличия доски
+      manCntl : Bool;   // ручной выгон (1 прокрут)
+      fullLay : Bool;   // полный слой собран
+   END_VAR
+
+   VAR_OUTPUT 
+      CMD_ON : Bool;   // команда на движение сброса с бобышек
+   END_VAR
+
+   VAR 
+      DropTask : Bool;   // задание на выгон доски целиком
+      ShiftTask : Bool;   // задание на сдвиг доски
+      Shifted : Bool;   // сдвинут на бобыльку
+      Vibrator : Bool;
+      DropTask_old : Bool;
+      ValidBoard_timer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;   // таймер наличия доски
+   END_VAR
+
+   VAR CONSTANT 
+      filterDelay : Time := T#100ms;
+   END_VAR
+
+
+BEGIN
+	//Фильтр наличия доски
+	//
+	#ValidBoard_timer(IN:=#boardSig,
+	                  PT:=#filterDelay);
+	
+	// задание на сброс доски (2 прокрута)
+	//
+	#DropTask := (#DropTask OR (#ValidBoard_timer.Q OR #manCntl)) AND NOT (#fullLay OR #Vibrator AND #bobFront); // задание на прокрут полный
+	
+	// помогает проехать две бобышки вместо одной
+	// инвертирует только при 
+	#Vibrator := (#Vibrator XOR (#DropTask AND #bobFront)) AND NOT (#DropTask AND NOT #DropTask_old);
+	
+	// Задание на сдвиг доски на одну бобышку
+	// 
+	#Shifted := (#Shifted OR #bobFront AND #ShiftTask) AND NOT #DropTask; // запоминаем что мы сдвинуты
+	#ShiftTask := (#ShiftTask OR #ValidBoard_timer.Q AND #fullLay AND NOT #Shifted) AND NOT (#bobFront); //задание на сдвиг на одну бобышку
+	
+	
+	// Команды и сигналы на выход
+	// 
+	#CMD_ON := #ShiftTask OR #DropTask;
+	
+	// ловим фронты
+	// 
+	#DropTask_old := #DropTask;
+END_FUNCTION_BLOCK
+

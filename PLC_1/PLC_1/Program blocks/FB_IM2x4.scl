@@ -1,0 +1,203 @@
+﻿FUNCTION_BLOCK "FB_IM2x4"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Ivanez
+VERSION : 0.1
+//Исполнительный механизм (2 команды, 4 положения - 2 конечных, 2 замедление)
+   VAR_INPUT 
+      OnSig : Bool;   //      Сигнал сработавшего открытого (выдвинутого)
+      OnSigLow : Bool;   //      Сигнал сработавшего открытого (выдвинутого) замедление
+      OffSig : Bool;   //      Сигнал сработавшего закрытого (задвинутого)
+      OffSigLow : Bool;   //      Сигнал сработавшего закрытого (задвинутого) замедление
+      OnCom : Bool;   //      Команда включения в автоматическом режиме
+      OffCom : Bool;   //      Команда отключения в автоматическом режиме
+      sigFeedback : Bool;   //      Обратная связь о том что устройство передвигается
+      hasFeedback : Bool;   //      Флаг о наличии обратной связи по движению
+      Ready : Bool;   //      Условие готовности
+      Reset : Bool;   //      Сброс
+      btnAU : Bool;   //      Перевести в Автоматическое управление
+      btnDU : Bool;   //      Перевести в Дистанционное управление
+      prmDU : Bool;   //      Разрешение на перевод в ДУ
+      btnDU_ON : Bool;   //      Выдвинуть в дистанционном управлении
+      btnDU_OF : Bool;   //      Задвинуть в дистанционном управлении
+      btnDUStop : Bool;   //      Кнопка Останов
+      btnMU : Bool;   //      Перевести в местное управление
+      btnMU_ON : Bool;   //      Включить в местном управлении
+      btnMU_OF : Bool;   //      Отключить в местном управлении
+      protection : Bool;   //      Условие включение защиты
+      Set_T_notON : Time;   //      Задержа на формирование неоткрытия
+      Set_T_notOFF : Time;   //      Задержа на формирование незакрытия
+      Set_T_notCMD : Time;   //      Задержа на формирование отсутсвия команды
+      Set_T_notFeedBack : Time;   // Задержка на формирование ошибки отсутствия обратной связи
+      SpeedOn : Real;   //     Задание на скорость выдвижения
+      SpeedOnLow : Real;   //     Задание на скорость выдвижения низкая
+      SpeedOff : Real;   //     Задание на скорость задвижения
+      SpeedOffLow : Real;   //     Задание на скорость задвижения низкая
+      SpeedDU : Real;   //     Задание на скорость в ДУ
+   END_VAR
+
+   VAR_OUTPUT 
+      AU : Bool;   //      Автоматическое управление (АУ)
+      DU : Bool;   //      Дистанционное управление (ДУ)
+      MU : Bool;   //      Местное управление (МУ)
+      notON : Bool;   //      Предупреждение о невключении
+      notOFF : Bool;   //      Предупреждение о неотключении
+      notCMD : Bool;   //      Предупреждение об отсутствие команды
+      notFeedBack : Bool;   // Предупреждение об отсутствии обратной связи
+      Fault : Bool;   //      Неисправность
+      onOutFWD : Bool;   //      Сигнал на открытие (выдвинуть)
+      onOutBWD : Bool;   //      Сигнал на закрытие (задвинуть)
+      PRM_btnDU_ON : Bool;   //      Разрешение кнопки включения в ДУ
+      PRM_btnDU_OFF : Bool;   //      Разрешение кнопки отключения в ДУ
+      SetSpeed : Real;   //     Задание на ПЧ
+   END_VAR
+
+   VAR 
+      speedLow_forward : Bool;
+      speedLow_revers : Bool;
+      checker_forward : Bool;
+      checker_revers : Bool;
+      unkn_state : Bool;   //     Неизвестное состояние
+      wrong_state : Bool;   //     Некорректное состояние
+      sigOnOut : Bool;   //      Сигналоткрытия
+      sigOffOut : Bool;   //      Сигнал закрытия
+      T_notON_TON {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;   //      Таймер неоткрытия
+      T_notOFF_TON {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;   //      Таймер незакрытия
+      T_notCMD_TON {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;   //      Таймер отстутствия
+      T_notFeedBack_TON {InstructionName := 'TON'; LibVersion := '1.0'} : TON;   // Таймер отсутствия обратной связи
+   END_VAR
+
+
+BEGIN
+	
+	//Формирование автоматического управления
+	IF #btnAU THEN
+	    #AU := true;
+	    #DU := false;
+	    #MU := false;
+	END_IF;
+	//Формирование дистанционного управления 
+	IF #btnDU THEN
+	    #DU := true;
+	    #AU := false;
+	    #MU := false;
+	END_IF;
+	//Формирование местного управления
+	IF #btnMU THEN
+	    #MU := true;
+	    #AU := false;
+	    #DU := false;
+	END_IF;
+	
+	IF NOT #AU AND NOT #DU AND NOT #MU THEN
+	    #MU := true;
+	END_IF;
+	
+	//Разрешения кнопок управления
+	#PRM_btnDU_ON := (NOT #OnSig AND #DU OR #notON);
+	#PRM_btnDU_OFF := (NOT #OffSig AND #DU OR #notOFF);
+	
+	
+	// Контроль скорости
+	// 
+	// триггеры замедления
+	// 
+	#speedLow_forward := (#speedLow_forward OR #OnSigLow AND #sigOnOut) AND NOT (#OnSig OR #OnSigLow AND #sigOffOut);
+	#speedLow_revers := (#speedLow_revers OR #OffSigLow AND #sigOffOut) AND NOT (#OffSig OR #OffSigLow AND #sigOnOut);
+	#checker_forward := (#checker_forward OR #OffSig) AND NOT #OffSigLow;
+	#checker_revers := (#checker_revers OR #OnSig) AND NOT #OnSigLow;
+	
+	IF (#sigOnOut) THEN
+	    IF (#speedLow_forward OR #checker_revers) THEN
+	        #SetSpeed := #SpeedOnLow;
+	    ELSE
+	        #SetSpeed := #SpeedOn;
+	    END_IF;
+	    
+	    
+	ELSIF (#sigOffOut) THEN
+	    IF (#speedLow_revers OR #checker_forward) THEN
+	        #SetSpeed := #SpeedOffLow;
+	    ELSE
+	        #SetSpeed := #SpeedOff;
+	    END_IF;
+	ELSE
+	    #SetSpeed := 0;
+	END_IF;
+	
+	//------------------------------------------------
+	//Формирование выходного сигнала открытия (выдвижение)
+	#sigOnOut := #Ready AND ((#sigOnOut
+	OR #AU AND #OnCom
+	OR #DU AND #btnDU_ON
+	OR #MU AND #btnMU_ON)
+	AND NOT (#OnSig
+	OR #AU AND ( #OffCom)
+	OR #DU AND (#btnDU_OF OR #btnDUStop)
+	OR #MU AND (NOT #btnMU_ON OR #btnMU_OF)
+	OR #notON
+	OR #wrong_state
+	));
+	
+	//Формирование выходного сигнала закрытия (задвижение)
+	#sigOffOut := #Ready AND ((#sigOffOut
+	OR #AU AND #OffCom
+	OR #DU AND #btnDU_OF
+	OR #MU AND #btnMU_OF)
+	AND NOT (#OffSig
+	OR #AU AND (#OnCom)
+	OR #DU AND (#btnDU_ON OR #btnDUStop)
+	OR #MU AND (#btnMU_ON OR NOT #btnMU_OF)
+	OR #notOFF
+	OR #wrong_state
+	));
+	
+	//Выбор выхода 
+	#onOutFWD := #sigOnOut;
+	#onOutBWD := #sigOffOut;
+	
+	
+	//Неизвестное состояние
+	#unkn_state := NOT (#OnSig OR #OffSig OR #onOutBWD OR #onOutFWD) AND NOT #Reset;
+	
+	//Некорректное состояние
+	#wrong_state := (#wrong_state
+	OR #OnSig AND #OffSig
+	OR #OnSig AND #OffSigLow
+	OR #OnSigLow AND #OffSigLow
+	OR #OnSigLow AND #OffSig
+	) AND NOT #Reset;
+	
+	
+	#T_notON_TON(
+	             IN := ( #sigOnOut AND NOT #sigOffOut AND NOT #OnSig AND NOT #Reset ),
+	             PT := #Set_T_notON
+	);
+	
+	#notON := (#notON OR #T_notON_TON.Q) AND NOT #Reset;
+	
+	#T_notCMD_TON(
+	              IN := ( NOT #sigOnOut AND NOT #sigOffOut AND (#sigFeedback AND #hasFeedback) AND NOT #Reset),
+	              PT := #Set_T_notCMD
+	);
+	
+	#notCMD := (#notCMD OR #T_notCMD_TON.Q) AND NOT #Reset;
+	
+	
+	#T_notOFF_TON(
+	              IN := (NOT #sigOnOut AND #sigOffOut AND NOT #OffSig AND NOT #Reset),
+	              PT := #Set_T_notOFF
+	);
+	
+	#notOFF := (#notOFF OR #T_notOFF_TON.Q) AND NOT #Reset;
+	
+	#T_notFeedBack_TON(
+	                   IN := (#sigOnOut OR #sigOffOut) AND NOT (#sigFeedback AND #hasFeedback) AND NOT #Reset,
+	                   PT := #Set_T_notFeedBack
+	);
+	
+	#notFeedBack := (#notFeedBack OR #T_notFeedBack_TON.Q) AND NOT #Reset;
+	
+	//Обобщенная неисправность
+	#Fault := #notON OR #notOFF OR #notCMD OR #notFeedBack OR #wrong_state OR #unkn_state;
+END_FUNCTION_BLOCK
+

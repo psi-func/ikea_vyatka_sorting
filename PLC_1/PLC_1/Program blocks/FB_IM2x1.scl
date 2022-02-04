@@ -1,0 +1,134 @@
+﻿FUNCTION_BLOCK "FB_IM2x1"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Ivanez
+VERSION : 0.1
+//Абстактный механизм с 1й командой вперед и 1й командой назад, 1й обратной связью (АУ, ДУ)
+   VAR_INPUT 
+      OnSig : Bool;   //      Сигнал сработавшего состояния
+      OnCom : Bool;   //      Команда включения в автоматическом режиме
+      Ready : Bool;   //      Условие готовности
+      Reset : Bool;   //      Сброс
+      btnAU : Bool;   //      Перевести в Автоматическое управление
+      btnDU : Bool;   //      Перевести в Дистанционное управление
+      prmDU : Bool;   //      Разрешение на перевод в ДУ
+      btnDU_ON : Bool;   //      Включить в дистанционном управлении
+      btnDU_OF : Bool;   //      Отключить в дистанционном управлении
+      btnMU : Bool;   //      Перевести в местное управление
+      btnMU_ON : Bool;   //      Включить в местном управлении
+      btnMU_OF : Bool;   //      Отключить в местном управлении
+      btn_Back_ON : Bool;   //      Включить задний ход
+      btn_Back_OFF : Bool;   //      Отключить задний ход
+      Set_T_notON : Time;   //      Задержа на формирование невключения
+      Set_T_notOFF : Time;   //      Задержа на формирование неотключения
+      setSpeedAU : Real;   //      Скорость в режиме автомат
+      setSpeedDU : Real;   //      Скорость в режиме ДУoutputs
+   END_VAR
+
+   VAR_OUTPUT 
+      AU : Bool;   //      Автоматическое управление (АУ)
+      DU : Bool;   //      Дистанционное управление (ДУ)
+      MU : Bool;   //      Местное управление (ДУ)
+      BACK : Bool;   //      Задний ход
+      notON : Bool;   //      Предупреждение о невключении
+      notOFF : Bool;   //      Предупреждение о неотключении
+      Alarm : Bool;   //      Авария (исчезновение готовности при работе)
+      Fault : Bool;   //      Неисправность
+      onOutFWD : Bool;   //      Сигнал на сработку механизма вперед
+      onOutBWD : Bool;   //      Сигнал на сработку механизма назад
+      PRM_btnDU_ON : Bool;   //      Разрешение кнопки включения в ДУ
+      PRM_btnDU_OFF : Bool;   //      Разрешение кнопки отключения в ДУ
+      PRMbtn_Back_ON : Bool;   //      Разрешение кнопки включения заднего хода
+      PRMbtn_Back_OFF : Bool;   //      Разрешение кнопки отключения заднего хода
+      setSpeed : Real;   //      скорость в автомате для частотникаvariables
+   END_VAR
+
+   VAR 
+      sigOut : Bool;   //      Сигнал включения
+      T_notON_TON {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;   //      Таймер невключения
+      T_notOFF_TON {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;   //      Таймер неотключения
+   END_VAR
+
+
+BEGIN
+	
+	//Формирование автоматического управления
+	IF #btnAU THEN
+	    #AU := true;
+	    #DU := false;
+	    #MU := false;
+	END_IF;
+	//Формирование дистанционного управления 
+	IF #btnDU THEN
+	    #DU := true;
+	    #AU := false;
+	    #MU := false;
+	END_IF;
+	//Формирование местного управления
+	IF #btnMU THEN
+	    #MU := true;
+	    #AU := false;
+	    #DU := false;
+	END_IF;
+	
+	IF NOT #AU AND NOT #DU AND NOT #MU THEN
+	    #MU := true;
+	END_IF;
+	
+	//Разрешения кнопок управления
+	#PRM_btnDU_ON := (NOT #OnSig AND #DU OR #notON);
+	#PRM_btnDU_OFF := ((#sigOut OR #OnSig) AND #DU OR #notOFF);
+	
+	//Формирование заднего хода
+	#BACK := (#BACK OR #btn_Back_ON AND NOT #OnSig) AND NOT (#btn_Back_OFF AND NOT #OnSig);
+	#PRMbtn_Back_ON := NOT #BACK AND NOT #onOutFWD;
+	#PRMbtn_Back_OFF := #BACK AND NOT #onOutBWD;
+	
+	//Формирование выходного сигнала
+	#sigOut := #Ready AND ((#sigOut
+	OR #AU AND #OnCom
+	OR #DU AND #btnDU_ON
+	OR #MU AND #btnMU_ON
+	)
+	AND NOT
+	(#Alarm
+	OR #AU AND NOT #OnCom
+	OR #DU AND #btnDU_OF
+	OR #MU AND #btnMU_OF
+	OR #notON));
+	
+	//Выбор выхода ВПЕРЕД НАЗАД
+	#onOutBWD := #sigOut AND #BACK;
+	#onOutFWD := #sigOut AND NOT #BACK;
+	
+	//Неисправности
+	#T_notON_TON(
+	             IN := (#sigOut AND NOT #OnSig AND NOT #Reset),
+	             PT := #Set_T_notON
+	);
+	
+	#notON := (#notON OR #T_notON_TON.Q) AND NOT #Reset;
+	
+	#T_notOFF_TON(
+	             IN := (NOT #sigOut AND #OnSig AND NOT #Reset),
+	             PT := #Set_T_notOFF
+	);
+	
+	#notOFF := (#notOFF OR #T_notOFF_TON.Q) AND NOT #Reset;
+	
+	
+	//Обобщенная неисправность
+	#Fault := #notON OR #notOFF;
+	
+	//Авария
+	#Alarm := (#Alarm OR #OnSig AND #sigOut AND NOT #Ready) AND NOT (#Reset);
+	
+	IF #DU THEN
+	    #setSpeed := #setSpeedDU;
+	ELSE
+	    #setSpeed := #setSpeedAU;
+	END_IF;
+	
+	#btnDU := false;
+	
+END_FUNCTION_BLOCK
+

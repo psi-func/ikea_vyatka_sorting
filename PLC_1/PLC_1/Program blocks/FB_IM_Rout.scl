@@ -1,0 +1,115 @@
+﻿FUNCTION_BLOCK "FB_IM_Rout"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR 
+      M_321_Rollgang_Lift_PFM { S7_SetPoint := 'False'} : "FB_IM2x1";   // выкатной транспортер на лифте ПФМки
+      M_322_Conveyor_2 : "FB_IM2x1";   // Выкатной транспортер после лифта
+      M_324_Rout_Conveyor : "FB_IM2x1";   // выкатной транспортер последний
+   END_VAR
+
+
+BEGIN
+	#M_321_Rollgang_Lift_PFM(OnSig:="DGI".F321K1_321K2,
+	                         Ready:="ALG".Ready_Rout,
+	                         Reset:="ALG".Reset OR "DGI".S76_2,
+	                         btnAU:="ServDB".M_321.BtnAU OR "ALG".Auto_Sorting,
+	                         btnDU:= "ServDB".M_321.BtnDU,
+	                         prmDU:=TRUE,
+	                         btnDU_ON:="ServDB".M_321.BtnFwd OR "ServDB".M_321.BtnBwd,
+	                         btnDU_OF:="ServDB".M_321.BtnCmdStop,
+	                         btnMU:="DGI".E88_3 OR "DGI".S88_2,
+	                         btnMU_ON:="DGI".E88_3 OR "DGI".S88_2,
+	                         btnMU_OF:=NOT ("DGI".E88_3 OR "DGI".S88_2),
+	                         btn_Back_ON:= "ServDB".M_321.BtnBwd OR "DGI".S88_2,
+	                         btn_Back_OFF:=NOT ("ServDB".M_321.BtnBwd OR "DGI".S88_2),
+	                         Set_T_notON:=T#500ms,
+	                         Set_T_notOFF:=T#500ms,
+	                         AU=>"ServDB".M_321.AU,
+	                         DU=>"ServDB".M_321.DU,
+	                         MU=>"ServDB".M_321.MU,
+	                         BACK=>"ServDB".M_321.BACK,
+	                         Alarm=>"ServDB".M_321.Alarm,
+	                         Fault=>"ServDB".M_321.Fault,
+	                         onOutFWD=>"ServDB".M_321.CMD_ON,
+	                         onOutBWD=>"ServDB".M_321.CMD_OFF,
+	                         PRM_btnDU_ON=>"ServDB".M_321.PrmBtnDU_ON,
+	                         PRM_btnDU_OFF=>"ServDB".M_321.PrmBtnDU_OF,
+	                         PRMbtn_Back_ON=>"ServDB".M_321.PRMbtn_Back_ON,
+	                         PRMbtn_Back_OFF=>"ServDB".M_321.PRMbtn_Back_OFF,
+	                         setSpeed=>"ServDB".M_321.SetSpeed
+	);
+	
+	"K1-321X1" := #M_321_Rollgang_Lift_PFM.onOutFWD AND "DGI".S16_1;
+	"K1-321X1.1" := #M_321_Rollgang_Lift_PFM.onOutBWD AND "DGI".S16_1;
+	
+	
+	
+	#M_322_Conveyor_2(OnSig:="DGI".F322K1_322K2,
+	                  Ready:="ALG".Ready_Rout,
+	                  Reset:="ALG".Reset OR "DGI".S76_2,
+	                  btnAU:="ServDB".M_322.BtnAU OR "ALG".Auto_Sorting,
+	                  btnDU:="ServDB".M_322.BtnDU,
+	                  prmDU:=TRUE,
+	                  btnDU_ON:="ServDB".M_322.BtnFwd OR "ServDB".M_322.BtnBwd,
+	                  btnDU_OF:="ServDB".M_322.BtnCmdStop,
+	                  btnMU:= "DGI".S88_5 OR "DGI".S88_4,
+	                  btnMU_ON:="DGI".S88_5 OR "DGI".S88_4,
+	                  btnMU_OF:=NOT ("DGI".S88_5 OR "DGI".S88_4),
+	                  btn_Back_ON:="ServDB".M_322.BtnBwd OR "DGI".S88_4,
+	                  btn_Back_OFF:=NOT ("ServDB".M_322.BtnBwd OR "DGI".S88_4),
+	                  Set_T_notON:=T#500ms,
+	                  Set_T_notOFF:=T#500ms,
+	                  AU=>"ServDB".M_322.AU,
+	                  DU=>"ServDB".M_322.DU,
+	                  MU=>"ServDB".M_322.MU,
+	                  BACK=>"ServDB".M_322.BACK,
+	                  Alarm=>"ServDB".M_322.Alarm,
+	                  Fault=>"ServDB".M_322.Fault,
+	                  onOutFWD=>"ServDB".M_322.CMD_ON,
+	                  onOutBWD=>"ServDB".M_322.CMD_OFF,
+	                  PRM_btnDU_ON=>"ServDB".M_322.PrmBtnDU_ON,
+	                  PRM_btnDU_OFF=>"ServDB".M_322.PrmBtnDU_OF,
+	                  PRMbtn_Back_ON=>"ServDB".M_322.PRMbtn_Back_ON,
+	                  PRMbtn_Back_OFF=>"ServDB".M_322.PRMbtn_Back_OFF,
+	                  setSpeed=>"ServDB".M_322.SetSpeed
+	);
+	
+	
+	"K1-322X1" := #M_322_Conveyor_2.onOutFWD;
+	"K1-322X1.1" := #M_322_Conveyor_2.onOutBWD;
+	
+	#M_324_Rout_Conveyor(OnSig:="DGI".K1_324U1,
+	                     Ready:="ALG".Ready_Rout,
+	                     Reset:="ALG".Reset OR "DGI".S76_2,
+	                     btnAU:= "ServDB".M_324.BtnAU OR "ALG".Auto_Sorting,
+	                     btnDU:= "ServDB".M_324.BtnDU,
+	                     prmDU:=TRUE,
+	                     btnDU_ON:="ServDB".M_324.BtnFwd OR "ServDB".M_324.BtnBwd,
+	                     btnDU_OF:="ServDB".M_324.BtnCmdStop,
+	                     btnMU:= "DGI".S89_1 OR "DGI".S89_0,
+	                     btnMU_ON:="DGI".S89_1 OR "DGI".S89_0,
+	                     btnMU_OF:=NOT ("DGI".S89_1 OR "DGI".S89_0),
+	                     btn_Back_ON:= "DGI".S89_0 OR "ServDB".M_324.BtnBwd,
+	                     btn_Back_OFF:=NOT ("DGI".S89_0 OR "ServDB".M_324.BtnBwd),
+	                     Set_T_notON:=T#1s,
+	                     Set_T_notOFF:=T#2s,
+	                     AU=>"ServDB".M_324.AU,
+	                     DU=>"ServDB".M_324.DU,
+	                     MU=>"ServDB".M_324.MU,
+	                     BACK=>"ServDB".M_324.BACK,
+	                     Alarm=>"ServDB".M_324.Alarm,
+	                     Fault=>"ServDB".M_324.Fault,
+	                     onOutFWD=>"ServDB".M_324.CMD_ON,
+	                     onOutBWD=>"ServDB".M_324.CMD_OFF,
+	                     PRM_btnDU_ON=>"ServDB".M_324.PrmBtnDU_ON,
+	                     PRM_btnDU_OFF=>"ServDB".M_324.PrmBtnDU_OF,
+	                     PRMbtn_Back_ON=>"ServDB".M_324.PRMbtn_Back_ON,
+	                     PRMbtn_Back_OFF=>"ServDB".M_324.PRMbtn_Back_OFF,
+	                     setSpeed=>"ServDB".M_324.SetSpeed
+	);
+	
+	"K1-324U2" := #M_324_Rout_Conveyor.onOutFWD;
+	"K1-324U2.2" := #M_324_Rout_Conveyor.onOutBWD;
+	
+END_FUNCTION_BLOCK
+

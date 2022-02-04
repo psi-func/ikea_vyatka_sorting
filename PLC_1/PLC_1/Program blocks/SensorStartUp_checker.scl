@@ -1,0 +1,8 @@
+﻿FUNCTION_BLOCK "SensorStartUp_checker"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+
+BEGIN
+END_FUNCTION_BLOCK
+

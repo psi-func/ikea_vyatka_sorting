@@ -1,0 +1,174 @@
+﻿FUNCTION_BLOCK "FB_IM2x3"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      upSig : Bool;   //       Сигнал верхнего концевика
+      midSig : Bool;   //       Сигнал среднего концевика
+      dnSig : Bool;   //       Сигнал нижнего концевика
+      btnAU : Bool;   // Команда перевода в АУ
+      setUp : Bool;   //       Установить в верхнее положение
+      setMid : Bool;   //       Установить в среднее положение
+      setDn : Bool;   //       Установить в нижнее положение
+      Ready : Bool;   //       Условие готовности
+      Reset : Bool;   //       Сброс
+      btnMU : Bool;   //       Команда на перевод в МУ
+      btnMU_ON : Bool;   //       Включить в местном управлении
+      btnMU_OF : Bool;   //       Отключить в местном управлении
+      sync_sig : Bool;   // сигнал синхронизации
+      set_time_notRun : Time;   //       установка времени на не верх
+   END_VAR
+
+   VAR_OUTPUT 
+      AU : Bool;
+      MU : Bool;
+      Fault : Bool;   //       Неисправность
+      outUp : Bool;   //       Сигнал о движении вверх (вперед)
+      outDn : Bool;   //       Сигнал о движении вниз (назад)
+      wrong_state : Bool;
+      wrong_CMD : Bool;
+      notUp : Bool;   //       Сигнал не верх
+      notMid : Bool;   //       Сигнал не середина
+      notDn : Bool;   //       Сигнал не низ
+   END_VAR
+
+   VAR 
+      CMD_Up_trig : Bool;
+      CMD_Dn_trig : Bool;
+      CMD_Dn_MU_trig : Bool;
+      CMD_Up_MU_trig : Bool;
+      UpState : Bool;
+      DnState : Bool;
+      MidState : Bool;
+      btnMU_ON_old : Bool;
+      btnMU_OF_old : Bool;
+      syncTask : Bool;
+      noRun_timer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+      Antitremble_timer {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+   END_VAR
+
+   VAR_TEMP 
+      btnON_front : Bool;
+      btnOF_front : Bool;
+      move_down : Bool;
+      move_up : Bool;
+      moving : Bool;
+   END_VAR
+
+
+BEGIN
+	IF (#btnAU) THEN
+	    #MU := FALSE;
+	    #AU := TRUE;
+	END_IF;
+	
+	IF (#btnMU) THEN
+	    #MU := TRUE;
+	    #AU := FALSE;
+	END_IF;
+	
+	IF (NOT (#AU OR #MU)) THEN
+	    #MU := TRUE;
+	    #AU := FALSE;
+	END_IF;
+	
+	// триггер фронтов кнопок
+	#btnON_front := #btnMU_ON AND NOT #btnMU_ON_old;
+	#btnOF_front := #btnMU_OF AND NOT #btnMU_OF_old;
+	
+	#CMD_Dn_MU_trig := #MU AND ((#CMD_Dn_MU_trig OR #btnOF_front) AND NOT #btnON_front);
+	#CMD_Up_MU_trig := #MU AND ((#CMD_Up_MU_trig OR #btnON_front) AND NOT #btnOF_front);
+	
+	// определение состояний
+	IF (#UpState) THEN
+	    #CMD_Dn_trig := #AU AND (#CMD_Dn_trig OR (#setMid OR #setDn)) AND NOT #setUp;
+	    #CMD_Up_trig := FALSE;
+	    
+	    IF ((#CMD_Dn_MU_trig OR #CMD_Dn_trig) AND (#midSig OR #dnSig)) THEN
+	        #MidState := #midSig;
+	        #DnState := #dnSig;
+	        #UpState := FALSE;
+	        #CMD_Dn_MU_trig := FALSE;
+	        #CMD_Dn_trig := FALSE;
+	    END_IF;
+	    
+	ELSIF (#MidState) THEN
+	    #CMD_Dn_trig := #AU AND (#CMD_Dn_trig OR #setDn) AND NOT (#setUp OR #setMid);
+	    #CMD_Up_trig := #AU AND (#CMD_Up_trig OR #setUp) AND NOT (#setDn OR #setMid);
+	    IF ((#CMD_Up_trig OR #CMD_Up_MU_trig) AND #upSig) THEN // едем вверх из среднего
+	
+	            #UpState := True;
+	            #MidState := FALSE;
+	            #CMD_Up_trig := FALSE;
+	            #CMD_Up_MU_trig := FALSE;
+	            
+	    END_IF;
+	    
+	    IF ((#CMD_Dn_MU_trig OR #CMD_Dn_trig) AND #dnSig) THEN
+	        
+	        #DnState := TRUE;
+	        #MidState := FALSE;
+	        #CMD_Dn_trig := FALSE;
+	        #CMD_Dn_MU_trig := FALSE;
+	        
+	    END_IF;
+	    
+	ELSIF (#DnState) THEN
+	    #CMD_Up_trig := #AU AND (#CMD_Up_trig OR (#setMid OR #setUp)) AND NOT #setDn;
+	    #CMD_Dn_trig := FALSE;
+	    
+	    IF ((#CMD_Up_trig OR #CMD_Up_MU_trig) AND (#midSig OR #upSig)) THEN // едем по причинам в среднее положение
+	            #DnState := FALSE;
+	            #MidState := #midSig;
+	            #UpState := #upSig;
+	            
+	            #CMD_Up_trig := FALSE;
+	            #CMD_Up_MU_trig := FALSE;
+	    END_IF;
+	   
+	ELSE // инициализация
+	    #DnState := TRUE;
+	    #MidState := FALSE;
+	    #UpState := FALSE;
+	END_IF;
+	
+	#move_down := #CMD_Dn_MU_trig OR #CMD_Dn_trig;
+	#move_up := #CMD_Up_MU_trig OR #CMD_Up_trig;
+	#moving := #move_up OR #move_down;
+	
+	// команды гидростанции плюс синхронизация с датчиком
+	// 
+	#syncTask := (#syncTask OR ((#MidState AND NOT #midSig) OR (#UpState AND NOT #upSig)) AND #sync_sig) AND NOT ((#MidState AND #midSig) OR (#UpState AND #upSig)) AND NOT #moving;
+	
+	//ошибки
+	//
+	#noRun_timer(IN:= #AU AND ((#setUp AND NOT #UpState) OR (#setDn AND NOT #dnSig) OR (#setMid AND NOT #MidState)) AND NOT #Reset,
+	            PT:=#set_time_notRun);
+	#notUp := (#notUp OR (#noRun_timer.Q AND #setUp AND NOT #UpState)) AND NOT #Reset;
+	#notDn := (#notDn OR (#noRun_timer.Q AND #setDn AND NOT #dnSig)) AND NOT #Reset;
+	#notMid := (#notMid OR (#noRun_timer.Q AND #setMid AND NOT #MidState)) AND NOT #Reset;
+	
+	(* #noDn_timer(IN:=#AU AND #setDn AND NOT #dnSig AND NOT #Reset,
+	            PT:=#set_time_notDn);
+	#notDn := (#notDn OR #noDn_timer.Q) AND NOT #Reset;
+	
+	#noMid_timer(IN:=#AU AND #setMid AND NOT #MidState AND NOT #Reset,
+	             PT:=#set_time_notMid);
+	#notMid := (#notMid OR #noMid_timer.Q) AND NOT #Reset; *)
+	
+	#wrong_state := #upSig AND #midSig OR #upSig AND #dnSig OR #midSig AND #dnSig;
+	#wrong_CMD := (#wrong_CMD OR (#move_up AND #move_down)) AND NOT #Reset;
+	
+	#Fault := #wrong_CMD OR #wrong_state OR #notDn OR #notUp OR #notMid;
+	
+	
+	// сигналы клапанам
+	#outUp := #Ready AND (#move_up OR #syncTask) AND NOT #upSig AND NOT #Fault;
+	#outDn := #Ready AND #move_down AND NOT #dnSig AND NOT #Fault;
+	
+	// фронты
+	// 
+	#btnMU_ON_old := #btnMU_ON;
+	#btnMU_OF_old := #btnMU_OF;
+END_FUNCTION_BLOCK
+

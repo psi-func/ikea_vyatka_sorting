@@ -1,0 +1,55 @@
+﻿FUNCTION_BLOCK "DynamicLayer_CNTL"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      NewPack : Bool;   // начало нового пакета
+      EnableDynamicLayer : Bool;   // включение функции динамических слоев
+      NotOkSensor : Bool;   // счетчик плохих досок
+      PackMaxHeight : Int;   // максимальная высота пакета
+      BoardsInLay : Int;   // досок на слой
+      BoardsInCurrentPack : Int;   // Всего досок в пакете
+   END_VAR
+
+   VAR_OUTPUT 
+      ActualMaxHeight : Int;   // текущее скорректированное число слоев
+   END_VAR
+
+   VAR 
+      NotOkSensor_old : Bool;
+      notOk_Counter : Int;   // счетчик плохих досок
+   END_VAR
+
+
+BEGIN
+	
+	IF NOT #EnableDynamicLayer THEN
+	    // Если не нужна данная функция и работаем на потоке, не будем ничего считать и просто отошлем параметр пакета
+	    // 
+	    #notOk_Counter := 0;
+	    #ActualMaxHeight := #PackMaxHeight;
+	ELSE
+	    IF (#NotOkSensor AND NOT #NotOkSensor_old) THEN
+	        #notOk_Counter := #notOk_Counter + 1;
+	    END_IF;
+	    
+	    #ActualMaxHeight := DINT_TO_INT(CEIL(INT_TO_REAL(#BoardsInCurrentPack - #notOk_Counter) / #BoardsInLay));
+	    
+	    IF (#ActualMaxHeight > #PackMaxHeight) THEN
+	        #ActualMaxHeight := #PackMaxHeight;
+	    END_IF;
+	END_IF;
+	
+	
+	(* // Кнопка новый пакет
+	IF (#NewPack) THEN
+	    #notOk_Counter := 0;
+	END_IF; *)
+	
+	// Ловим фронты
+	#NotOkSensor_old := #NotOkSensor;
+	
+	
+	
+END_FUNCTION_BLOCK
+

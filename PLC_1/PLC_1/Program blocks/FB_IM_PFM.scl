@@ -1,0 +1,147 @@
+﻿FUNCTION_BLOCK "FB_IM_PFM"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR 
+      M_233_Fork_PFM { S7_SetPoint := 'False'} : "FB_IM2x4";   // Вилы основной ПФМ
+      M_232_Elevator_PFM : "FB_IM2x2S";   // Лифт основной ПФМ
+      M_317_Gasket_Carousel : "FB_IM2x1";   // Карусель прокладок
+      Elevator_brake_timer {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+   END_VAR
+
+
+BEGIN
+	
+	REGION M_233
+	    // Statement section REGION
+	    #M_233_Fork_PFM(OnSig:="DGI".S15_2,
+	                    OnSigLow:="DGI".S15_1,
+	                    OffSig:= "DGI".S14_7,
+	                    OffSigLow:="DGI".S15_0,
+	                    sigFeedback:="DGI".F233K1 AND "DGI".K1_233U1,
+	                    hasFeedback:=TRUE,
+	                    Ready:="ALG".Ready_Sorting,
+	                    Reset:="ALG".Reset OR "DGI".S76_2,
+	                    btnAU:="ALG".Auto_Sorting OR "ServDB".M_233.BtnAU,
+	                    btnDU:= NOT "ALG".Auto_Sorting AND "ServDB".M_233.BtnDU,
+	                    prmDU:=TRUE,
+	                    btnDU_ON:="ServDB".M_233.BtnFwd,
+	                    btnDU_OF:= "ServDB".M_233.BtnBwd,
+	                    btnDUStop:="ServDB".M_233.BtnCmdStop,
+	                    btnMU:=NOT ("ALG".Auto_Sorting OR "ServDB".M_233.BtnDU),
+	                    btnMU_ON:="DGI".S78_0,
+	                    btnMU_OF:="DGI".E78_1,
+	                    protection:=false,
+	                    Set_T_notON:=T#20s,
+	                    Set_T_notOFF:=T#20s,
+	                    Set_T_notCMD:=T#500ms,
+	                    Set_T_notFeedBack:=T#500ms,
+	                    SpeedOn:=20,
+	                    SpeedOnLow:=10,
+	                    SpeedOff:=20,
+	                    SpeedOffLow:=10,
+	                    SpeedDU:="ServDB".M_233.SetSpeedDU,
+	                    AU=>"ServDB".M_233.AU,
+	                    DU=>"ServDB".M_233.DU,
+	                    MU=>"ServDB".M_233.MU,
+	                    Fault=>"ServDB".M_233.Fault,
+	                    onOutFWD=>"ServDB".M_233.CMD_ON,
+	                    onOutBWD=>"ServDB".M_233.CMD_OFF,
+	                    PRM_btnDU_ON=>"ServDB".M_233.PrmBtnDU_ON,
+	                    PRM_btnDU_OFF=>"ServDB".M_233.PrmBtnDU_OF
+	                   
+	    );
+	    
+	    
+	    "K1-233X1" := "ALG".Ready_Sorting;
+	    "K1-233U2" := #M_233_Fork_PFM.onOutFWD OR #M_233_Fork_PFM.onOutBWD;
+	    "K1-233U2.2" := #M_233_Fork_PFM.onOutFWD;
+	END_REGION
+	
+	REGION M_232
+	    // Statement section REGION
+	    #M_232_Elevator_PFM(onSig := "DGI".S16_2,
+	                        offSig := "DGI".S16_1,
+	                        sigFeedback := "DGI".F232K1 AND "DGI".K1_215U1,
+	                        hasFeedback := true,
+	                        btnUp := "ServDB".M_232.BtnFwd,
+	                        btnDown := "ServDB".M_232.BtnBwd,
+	                        btnStop := "ServDB".M_232.BtnCmdStop,
+	                        Ready := "ALG".Ready_Sorting,
+	                        Reset := "ALG".Reset OR "DGI".S76_2,
+	                        prmDU := true,
+	                        btnAU := "ServDB".M_232.BtnAU OR "ALG".Auto_Sorting,
+	                        btnDU := "ServDB".M_232.BtnDU,
+	                        btnMU := "DGI".E86_1 OR "DGI".E78_5 OR "DGI".S86_0 OR "DGI".S78_4 OR NOT ("ALG".Auto_Sorting OR "ServDB".M_232.BtnDU),
+	                        btnMU_ON := "DGI".E86_1 OR "DGI".E78_5,
+	                        btnMU_OF := "DGI".S86_0 OR "DGI".S78_4,
+	                        set_time_notOn := T#1500ms,
+	                        set_time_notOff := T#5000ms,
+	                        set_time_notCMD := T#2000ms,
+	                        setSpeedDU := "ServDB".M_232.SetSpeedDU,
+	                        AU => "ServDB".M_232.AU,
+	                        DU => "ServDB".M_232.DU,
+	                        MU => "ServDB".M_232.MU,
+	                        Fault => "ServDB".M_232.Fault,
+	                        outFWD => "ServDB".M_232.CMD_ON,
+	                        outBKD => "ServDB".M_232.CMD_OFF,
+	                        setSpeed => "ServDB".M_317.SetSpeed
+	    );
+	    
+	    "K1-232X1" := "ALG".Ready_Sorting;
+	    // Управление тормозом
+	    #Elevator_brake_timer(IN := #M_232_Elevator_PFM.outFWD XOR #M_232_Elevator_PFM.outBKD,
+	                          PT := T#50ms
+	    );
+	    
+	    "K1-232X1.1" := #Elevator_brake_timer.Q AND "DGI".K1_215U1;
+	    
+	    "K1-215U2.2" := #M_232_Elevator_PFM.outBKD;
+	    "K1-215U2" := #M_232_Elevator_PFM.outFWD OR #M_232_Elevator_PFM.outBKD;
+	END_REGION
+	
+	REGION M_317
+	    
+	    #M_317_Gasket_Carousel(OnSig:="DGI".F317K1 AND "DGI".K1_317U1,
+	                           OnCom:= ("FB_Gasket_Carousel_DB".Carousel_FWD AND (NOT "B18.0")) OR "FB_Gasket_Carousel_DB".Carousel_BWD,
+	                           Ready:="ALG".Ready_Sorting,
+	                           Reset:="DGI".S76_2 OR "ALG".Reset,
+	                           btnAU:= "ServDB".M_317.BtnAU OR "ALG".Auto_Sorting,
+	                           btnDU:="ServDB".M_317.BtnDU,
+	                           prmDU:=true,
+	                           btnDU_ON:="ServDB".M_317.BtnFwd OR "ServDB".M_317.BtnBwd,
+	                           btnDU_OF:= "ServDB".M_317.BtnCmdStop,
+	                           btnMU:=NOT ("ServDB".M_317.BtnDU OR "ALG".Auto_Sorting) OR ("FB_Gasket_Carousel_DB".s_man_cntl AND "ALG".Auto_Sorting),
+	                           btnMU_ON:="DGI".S84_1 OR "DGI".E84_2,
+	                           btnMU_OF:= NOT ("DGI".S84_1 OR "DGI".E84_2),
+	                           btn_Back_ON:= "ServDB".M_317.BtnBwd OR "DGI".E84_2 OR "FB_Gasket_Carousel_DB".Carousel_BWD,
+	                           btn_Back_OFF:= NOT ("ServDB".M_317.BtnBwd OR "DGI".E84_2 OR "FB_Gasket_Carousel_DB".Carousel_BWD),
+	                           Set_T_notON:=T#500ms,
+	                           Set_T_notOFF:=T#500ms,
+	                           setSpeedDU:="ServDB".M_317.SetSpeedDU,
+	                           AU=>"ServDB".M_317.AU,
+	                           DU=>"ServDB".M_317.DU,
+	                           MU=>"ServDB".M_317.MU,
+	                           BACK=>"ServDB".M_317.BACK,
+	                           Alarm=>"ServDB".M_317.Alarm,
+	                           Fault=>"ServDB".M_317.Fault,
+	                           onOutFWD=>"ServDB".M_317.CMD_ON,
+	                           onOutBWD=>"ServDB".M_317.CMD_OFF,
+	                           PRM_btnDU_ON=>"ServDB".M_317.PrmBtnDU_ON,
+	                           PRM_btnDU_OFF=>"ServDB".M_317.PrmBtnDU_OF,
+	                           PRMbtn_Back_ON=>"ServDB".M_317.PRMbtn_Back_ON,
+	                           PRMbtn_Back_OFF=>"ServDB".M_317.PRMbtn_Back_OFF,
+	                           setSpeed=>"ServDB".M_317.SetSpeed
+	    );
+	    
+	    
+	    "K1-317X1" := "ALG".Ready_Sorting;
+	    "K1-317U2" := #M_317_Gasket_Carousel.onOutFWD OR #M_317_Gasket_Carousel.onOutBWD;
+	    "K1-317X1.1" := #M_317_Gasket_Carousel.onOutFWD OR #M_317_Gasket_Carousel.onOutBWD;
+	    "K1-317U2.2" := #M_317_Gasket_Carousel.onOutBWD;
+	    
+	    
+	    
+	    
+	END_REGION
+END_FUNCTION_BLOCK
+

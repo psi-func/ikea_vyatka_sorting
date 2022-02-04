@@ -1,0 +1,64 @@
+﻿FUNCTION_BLOCK "SensLine_SigAdapter"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      InputSig : Word;
+      InputArr { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} AT InputSig : Array[0..15] of Bool;
+   END_VAR
+
+   VAR_OUTPUT 
+      OutputSig : Word;
+      OutputArr { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} AT OutputSig : Array[0..15] of Bool;
+   END_VAR
+
+   VAR 
+      timer_18 {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+      timer_42 {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+      timer_48 {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+      timer_51 {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+      timer_57 {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+   END_VAR
+
+   VAR CONSTANT 
+      delayFilter : Time := T#100ms;
+   END_VAR
+
+
+BEGIN
+	//просто копирование до фильтрации отдельных битов
+	//
+	#OutputSig := #InputSig;
+	
+	//Блок фильтрации
+	// 1.8 m
+	#timer_18(IN:=#InputArr[0],
+	          PT:=#delayFilter);
+	
+	#OutputArr[0] := #timer_18.Q;
+	
+	// 4.2 m
+	#timer_42(IN := #InputArr[8],
+	          PT := #delayFilter);
+	
+	#OutputArr[8] := #timer_42.Q;
+	
+	// 4.8 m
+	#timer_48(IN := #InputArr[10],
+	          PT := #delayFilter);
+	
+	#OutputArr[10] := #timer_48.Q;
+	
+	// 5.1 m
+	#timer_51(IN := #InputArr[11],
+	          PT := #delayFilter);
+	
+	#OutputArr[11] := #timer_51.Q;
+	
+	// 5.7 m
+	#timer_57(IN := #InputArr[13],
+	          PT := T#150ms);
+	
+	#OutputArr[13] := #timer_57.Q;
+	
+END_FUNCTION_BLOCK
+

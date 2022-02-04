@@ -1,0 +1,971 @@
+﻿FUNCTION_BLOCK "FB_IM"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+// Загрузка
+   VAR 
+      M_211_Load_Transp : "FB_IM2x1";   //     Загрузочный транспортер пакета
+      M_311_Strip_Remov : "FB_IM1x1";   //     Ленточный транспортер удаления рейки
+      M_212_Sort_Elevator : "FB_IM2x2S";   //     Загрузочный лифт сортировки+тормоз
+      M_213_ConvElevator : "FB_IM1x1";   //     Наклонный транспортер после Лифта
+      M_222_Main_Sort_Slide : "FB_IM1x1";   //     Основная горка сортировки Сортировка
+      M_325_Tr_Hill : "FB_IM1x1";   //     Транспортер приема доски с Горки перед поштучкой
+      M_223_Evaluation_area : "FB_IM1x1";   //     Транспортер после поштучной выдачи(Зона оценки)
+      M_224_Individ_dispensing : "FB_IM2x2S";   //     Упоры Поштучной выдачи
+      M_225_Conveyor_with_lugs : "FB_IM1x1";   //     Транспортер с бобышками после второй поштучной выдачи
+      M_235_Movable_board : "FB_IM2x2S";   //     Подвижный борт
+      M_231_Roller_conveyor : "FB_IM1x1";   //     Рольганг Что-то еще
+      M_323_Small_Chain : "FB_IM1x1";   // Маленький цепной после элеватора
+      M_214_Gasket_receiver : "FB_IM1x1";   // Приемный транспортер прокладок
+      M_312_First_slide : "FB_IM1x1";   // Первая горка после приемного транспортера прокладок
+      M_313_AF_slide_conv : "FB_IM1x1";   // Транспортер после первой горки прокладок
+      M_316_Padloader_IN2 : "FB_IM1x1";   // Транспортер загрузки прокладок в горку 2
+      M_314_Second_slide : "FB_IM1x1";   // Вторая горка прокладок
+      M_315_Third_slide : "FB_IM1x1";   // Третья горка прокладок
+      M_234_Carousel_loader : "FB_IM1x1";   // Транспортер загрузки прокладок перед каруселью
+      M_330_Scrap_Conv : "FB_IM1x1";   // Ленточный транспортер брака
+      M_331_Scrap_conveyor : "FB_IM1x1";   // Ленточный транспортер приема брака
+      M_332_Dump_lug_conv : "FB_IM1x1";   // Транспортер с бобышками сброса с рольганга брака
+      M_333_Defective_roller : "FB_IM1x1";   // Рольганг брака после ленточного
+      M_334_Layer_set_conv : "FB_IM1x1";   // Транспортер набора слоя брака перед ПФМ
+      M_335_Lay_fork_scrap : "FB_IM2x2";   //  M335 Вилы брака ПФМ
+      M_336_PFM_elevator : "FB_IM2x2S";   // М336 Лифт брака ПФМ+тормоз
+   END_VAR
+
+
+BEGIN
+	
+	// --------------------------------------------------ЗАГРУЗКА-------------------------------------------
+	//
+	REGION Board_loading
+	    // Statement section REGION
+	    (*
+	F211K1_211K2    I       1.0    BOOL    М211 включен сигналы
+	E76.7    I      24.7    BOOL    вперед М211 приемный транспортер в автомате
+	K1-211X1    Q       1.0    BOOL    М211 вперед загрузочный транспортер
+	K1-211X1.1    Q       1.1    BOOL    М211 назад загрузочный транспортер
+	S76_2    I      24.2    BOOL    Подтверждение ошибки
+	E82_2    I      30.2    BOOL    Приемный транспортер назад ОР2
+	S81_1    I      30.1    BOOL    Приемный транспортер вперед ОР2
+	
+	*)
+	    
+	    #M_211_Load_Transp(OnSig := "DGI".F211K1_211K2,
+	                       //OnCom:=false,,
+	                       Ready := "ALG".Ready_loading,
+	                       Reset := "DGI".S76_2 OR "ALG".Reset,
+	                       btnAU := "ALG".Auto_loading OR "ServDB".M_211.BtnAU,
+	                       btnDU := #M_211_Load_Transp.btnDU,
+	                       prmDU := TRUE,
+	                       btnDU_ON := "ServDB".M_211.BtnFwd,
+	                       btnDU_OF := "ServDB".M_211.BtnCmdStop,
+	                       btnMU := NOT "ALG".Auto_loading,
+	                       btnMU_ON := "DGI".S81_1 OR "DGI".E82_2,
+	                       btnMU_OF := "ALG".Auto_loading OR "ServDB".M_211.BtnDU OR NOT ("DGI".S81_1 OR "DGI".E82_2),
+	                       btn_Back_ON := "DGI".E82_2 OR "ServDB".M_211.BtnBwd,
+	                       btn_Back_OFF := NOT ("DGI".E82_2 OR "ServDB".M_211.BtnBwd),
+	                       Set_T_notON := T#500ms,
+	                       Set_T_notOFF := T#500ms,
+	                       //setSpeedAU := ,
+	                       setSpeedDU := "ServDB".M_211.SetSpeedDU,
+	                       AU => "ServDB".M_211.AU,
+	                       DU => "ServDB".M_211.DU,
+	                       MU => "ServDB".M_211.MU,
+	                       BACK => "ServDB".M_211.BACK,
+	                       Alarm => "ServDB".M_211.Alarm,
+	                       Fault => "ServDB".M_211.Fault,
+	                       onOutFWD => "ServDB".M_211.CMD_ON,
+	                       onOutBWD => "ServDB".M_211.CMD_OFF,
+	                       PRM_btnDU_ON => "ServDB".M_211.PrmBtnDU_ON,
+	                       PRM_btnDU_OFF => "ServDB".M_211.PrmBtnDU_OF,
+	                       PRMbtn_Back_ON => "ServDB".M_211.PRMbtn_Back_ON,
+	                       PRMbtn_Back_OFF => "ServDB".M_211.PRMbtn_Back_OFF
+	
+	    );
+	    
+	    "K1-211X1" := #M_211_Load_Transp.onOutFWD;
+	    "K1-211X1.1" := #M_211_Load_Transp.onOutBWD;
+	    
+	        
+	        
+	        (*
+	    F311K1_311K2    I       4.0    BOOL    М311 включен сигналы
+	    K1_311X1    Q       3.4    BOOL    запуск М311 вперед удаление прокладок ленточный
+	    K1_311X1_1    Q       3.5    BOOL    запуск М311 назад удаление прокладок ленточный
+	    
+	    *)                     
+	    #M_311_Strip_Remov(OnSig := "DGI".F311K1_311K2,
+	                       Ready := "ALG".Ready_Sorting,
+	                       Reset := "DGI".S76_2 OR "ALG".Reset,
+	                       btnAU := "ALG".Auto_loading OR "ServDB".M_311.BtnAU,
+	                       btnDU := "ServDB".M_311.BtnDU,
+	                       prmDU := TRUE,
+	                       btnDU_ON := "ServDB".M_311.BtnFwd,
+	                       btnDU_OF := "ServDB".M_311.BtnCmdStop,
+	                       btnMU := "DGI".E83_1 OR "DGI".E83_2,
+	                       btnMU_ON := "DGI".E83_1 OR "DGI".E83_2,
+	                       btnMU_OF := NOT ("DGI".E83_1 OR "DGI".E83_2),
+	                       Set_T_notON := T#500ms,
+	                       Set_T_notOFF := T#500ms,
+	                       setSpeedDU := "ServDB".M_311.SetSpeedDU,
+	                       AU => "ServDB".M_311.AU,
+	                       DU => "ServDB".M_311.DU,
+	                       MU => "ServDB".M_311.MU,
+	                       Alarm => "ServDB".M_311.Alarm,
+	                       Fault => "ServDB".M_311.Fault,
+	                       onOutFWD => "ServDB".M_311.CMD_ON,
+	                       PRM_btnDU_ON => "ServDB".M_311.PrmBtnDU_ON,
+	                       PRM_btnDU_OFF => "ServDB".M_311.PrmBtnDU_OF
+	    );
+	    
+	    "K1-311X1" := #M_311_Strip_Remov.onOutFWD;
+	    
+	    
+	(*
+	F212K1    I       1.1    BOOL    Контактор К1 Включен М212 сигналы
+	K1-212U    PQW   512    WORD    
+	K1_212U2    Q       8.0    BOOL    старт ПЧТ М212
+	K1_212U2_2    Q       8.1    BOOL    Реверс ПЧТ М212
+	K1-212X1    Q       1.2    BOOL    контактор К1-212 ПЧТ запуск лифт
+	K1-212X1.1    Q       1.3    BOOL    Растормаживание М212 лифт
+	
+	*)
+	    #M_212_Sort_Elevator(
+	                         onSig := "DGI".Liftdown,
+	                         offSig := "DGI".LiftUp,
+	                         sigFeedback := "DGI".F212K1 AND "DGI".K1_221U1,
+	                         hasFeedback := true,
+	                         "Ready" := "ALG".Ready_loading,
+	                         Reset := "DGI".S76_2 OR "ALG".Reset,
+	                         btnAU := "ServDB".M_212.BtnAU OR "ALG".Auto_loading,
+	                         btnDU := "ServDB".M_212.BtnDU,
+	                         prmDU := true,
+	                         btnUp := "ServDB".M_212.BtnFwd,
+	                         btnDown := "ServDB".M_212.BtnBwd,
+	                         btnStop := "ServDB".M_212.BtnCmdStop,
+	                         btnMU := (*"DGI".S82_4 OR "DGI".E82_5 OR*) NOT ("ServDB".M_212.BtnAU OR "ALG".Auto_loading),
+	                         btnMU_ON := "DGI".S82_4,
+	                         btnMU_OF := "DGI".E82_5,
+	                         set_time_notOn := T#1500ms,
+	                         set_time_notOff := T#1500ms,
+	                         set_time_notCMD := T#500ms,
+	                         setSpeedDU := "ServDB".M_212.SetSpeedDU,
+	                         AU => "ServDB".M_212.AU,
+	                         DU => "ServDB".M_212.DU,
+	                         Fault => "ServDB".M_212.Fault,
+	                         outFWD => "ServDB".M_212.CMD_ON,
+	                         outBKD => "ServDB".M_212.CMD_OFF
+	                         
+	    );
+	    
+	    
+	    "K1-212X1" := "ALG".Ready_loading;
+	    "K1-212U2" := #M_212_Sort_Elevator.outBKD XOR #M_212_Sort_Elevator.outFWD;
+	    "K1-212X1.1" := #M_212_Sort_Elevator.outFWD OR #M_212_Sort_Elevator.outBKD;
+	    "K1-212U2.2" := #M_212_Sort_Elevator.outBKD;
+	    
+	    
+	(*
+	F213K1    I       1.2    BOOL    контактор К1 Включен М213 сигналы
+	K1-213U    PQW   514    WORD    
+	K1-213U1    I       7.1    BOOL    ПЧТ 213 в работе сигналы
+	K1_213U2    Q       8.2    BOOL    Старт ПЧТ М213
+	K1_213X1    Q       1.4    BOOL    контактор К1-213 ПЧТ запуск наклонный транспортер
+	
+	*)   
+	    #M_213_ConvElevator(
+	                        OnSig := "DGI".F213K1 AND "DGI".K1_213U1,
+	                        Ready := "ALG".Ready_loading OR "ServDB".M_213.Ready,
+	                        Reset := "DGI".S76_2 OR "ALG".Reset,
+	                        btnAU :=  "ALG".Auto_loading OR "ServDB".M_213.BtnAU,
+	                        btnDU := "ServDB".M_213.BtnDU,
+	                        prmDU := TRUE,
+	                        btnDU_ON := "ServDB".M_213.BtnFwd,
+	                        btnDU_OF := NOT "ServDB".M_213.BtnFwd,
+	                        btnMU := "DGI".E82_7 OR NOT "DGI".S82_6,
+	                        btnMU_ON := "DGI".E82_7,
+	                        btnMU_OF := NOT "DGI".E82_7,
+	                        Set_T_notON := T#1500ms,
+	                        Set_T_notOFF := T#1500ms,
+	                        setSpeedDU:= "ServDB".M_213.SetSpeedDU,
+	                        AU=> "ServDB".M_213.AU,
+	                        DU=>"ServDB".M_213.DU,
+	                        MU=>"ServDB".M_213.MU,
+	                        Alarm=>"ServDB".M_213.Alarm,
+	                        Fault=>"ServDB".M_213.Fault,
+	                        onOutFWD=>"ServDB".M_213.CMD_ON,
+	                        PRM_btnDU_ON=>"ServDB".M_213.PrmBtnDU_ON,
+	                        PRM_btnDU_OFF=> "ServDB".M_213.PrmBtnDU_OF
+	    );
+	    "K1-213X1" := "ALG".Ready_loading;
+	    "K1-213U2" := #M_213_ConvElevator.onOutFWD;
+	    
+	END_REGION
+	
+	
+	// --------------------------------------------------СОРТИРОВКА-----------------------------------------
+	//
+	REGION Sorting
+	    // Statement section REGION
+	    // 
+	    
+	    
+	    (*
+	F222K1    I       2.1    BOOL    Контактор К1 Включен М222 сигналы
+	K1-222U    PQW   518    WORD    
+	K1-222U1    I       7.3    BOOL    ПЧТ 222 в работе сигналы
+	K1_222U2    Q       8.5    BOOL    Старт ПЧТ 222
+	K1-222X1    Q       2.1    BOOL    Запуск контактора К1-222 ПЧТ маленький цепной после элеватора
+	*)
+	    
+	    #M_222_Main_Sort_Slide(
+	                           OnSig := "DGI".F222K1 AND "DGI".K1_222U1,
+	                           Ready := "ALG".Ready_Sorting,
+	                           Reset := "DGI".S76_2 OR "ALG".Reset,
+	                           btnAU := "ServDB".M_222.BtnAU OR "DGI".S77_0,
+	                           btnDU := "ServDB".M_222.BtnDU,
+	                           prmDU := TRUE,
+	                           btnDU_ON := "ServDB".M_222.BtnFwd,
+	                           btnDU_OF := "ServDB".M_222.BtnCmdStop,
+	                           btnMU := "DGI".E77_1 OR "DGI".E87_2,
+	                           btnMU_ON := "DGI".E77_1 OR "DGI".E87_2,
+	                           btnMU_OF := NOT ("DGI".E77_1 OR "DGI".E87_2),
+	                           Set_T_notON := T#500ms,
+	                           Set_T_notOFF := T#500ms,
+	                           setSpeedDU := "ServDB".M_222.SetSpeedDU,
+	                           AU => "ServDB".M_222.AU,
+	                           DU => "ServDB".M_222.DU,
+	                           MU => "ServDB".M_222.MU,
+	                           Alarm => "ServDB".M_222.Alarm,
+	                           Fault => "ServDB".M_222.Fault,
+	                           onOutFWD => "ServDB".M_222.CMD_ON,
+	                           PRM_btnDU_ON => "ServDB".M_222.PrmBtnDU_ON,
+	                           PRM_btnDU_OFF => "ServDB".M_222.PrmBtnDU_OF
+	    );
+	    
+	    "K1-222X1" := "ALG".Ready_Sorting;
+	    "K1-222U2" := #M_222_Main_Sort_Slide.onOutFWD;
+	    
+	    
+	    
+	    #M_325_Tr_Hill // Транспортер приема доски с Горки перед поштучкой
+	(*   
+	 F323K1_323K2    I       5.2    BOOL    Резерв
+	 K1_325X1    Q       5.2    BOOL    резерв
+	 K1_325X1_1    Q       5.3    BOOL    резерв
+	 *)
+	    (OnSig := #M_325_Tr_Hill.onOutFWD , //"DGI".F325K1 AND "DGI".K1_325U1,
+	     Ready := "ALG".Ready_Sorting,
+	     Reset := "ALG".Reset OR "DGI".S76_2,
+	     btnAU := "ServDB".M_325.BtnAU OR "ALG".Auto_Sorting,
+	     btnDU := "ServDB".M_325.BtnDU,
+	     prmDU := true,
+	     btnDU_ON := "ServDB".M_325.BtnFwd,
+	     btnDU_OF := "ServDB".M_325.BtnCmdStop,
+	     Set_T_notON := T#500ms,
+	     Set_T_notOFF := T#500ms,
+	     setSpeedDU := "ServDB".M_325.SetSpeedDU,
+	     AU => "ServDB".M_325.AU,
+	     DU => "ServDB".M_325.DU,
+	     MU => "ServDB".M_325.MU,
+	     Alarm => "ServDB".M_325.Alarm,
+	     Fault => "ServDB".M_325.Fault,
+	     onOutFWD => "ServDB".M_325.CMD_ON,
+	     PRM_btnDU_ON => "ServDB".M_325.PrmBtnDU_ON,
+	     PRM_btnDU_OFF => "ServDB".M_325.PrmBtnDU_OF,
+	     setSpeed => "ServDB".M_325.SetSpeed
+	     
+	    );
+	    
+	    "K1-325X1" := "ALG".Ready_Sorting;
+	    "K1-325U2" := #M_325_Tr_Hill.onOutFWD;
+	    
+	    
+	    
+	    #M_223_Evaluation_area // Транспортер после поштучной выдачи(Зона оценки)
+	(*
+	F223K1    I       2.2    BOOL    Резерв                            DGI.    F223K1    :=    I       2.2    ; //    Резерв
+	K1_223X1    Q       2.2    BOOL    запуск М223 резерва
+	*)
+	    (OnSig := "DGI".K1_223U1,
+	     Ready := "ALG".Ready_Sorting,
+	     Reset := "DGI".S76_2 OR "ALG".Reset,
+	     btnAU := "ServDB".M_223.BtnAU OR "ALG".Auto_Sorting,
+	     btnDU := "ServDB".M_223.BtnDU,
+	     prmDU := TRUE,
+	     btnDU_ON := "ServDB".M_223.BtnFwd,
+	     btnDU_OF := "ServDB".M_223.BtnCmdStop,
+	     btnMU :=  "DGI".E76_7 OR NOT "DGI".S76_6,
+	     btnMU_ON :="DGI".E76_7,
+	     btnMU_OF := NOT "DGI".E76_7,
+	     Set_T_notON := T#500ms,
+	     Set_T_notOFF := T#500ms,
+	     setSpeedDU := "ServDB".M_223.SetSpeedDU,
+	     AU => "ServDB".M_223.AU,
+	     DU => "ServDB".M_223.DU,
+	     MU => "ServDB".M_223.MU,
+	     Alarm => "ServDB".M_223.Alarm,
+	     Fault => "ServDB".M_223.Fault,
+	     onOutFWD => "ServDB".M_223.CMD_ON,
+	     PRM_btnDU_ON => "ServDB".M_223.PrmBtnDU_ON,
+	     PRM_btnDU_OFF => "ServDB".M_223.PrmBtnDU_OF
+	    );
+	    
+	    "K1-223X1" := "ALG".Ready_Sorting;
+	    "K1-223U2" := #M_223_Evaluation_area.onOutFWD;
+	    
+	    
+	    
+	    #M_224_Individ_dispensing // Упоры Поштучной выдачи 2x2S
+	    (
+	     onSig := NOT "DGI".S14_3,
+	     offSig:= NOT "DGI".S14_2,
+	     sigFeedback:="DGI".F224K1,
+	     hasFeedback:=true,
+	     btnUp:="ServDB".M_224.BtnFwd,
+	     btnDown:="ServDB".M_224.BtnBwd,
+	     btnStop:="ServDB".M_224.BtnCmdStop,
+	     Ready := "ALG".Ready_Sorting,
+	     Reset := "ALG".Reset OR "DGI".S76_2,
+	     btnAU := "ALG".Auto_Sorting OR "ServDB".M_224.BtnAU,
+	     btnDU := "ServDB".M_224.BtnDU,
+	     prmDU := true,
+	     
+	     btnMU :="DGI".S77_6 OR "DGI".E77_7,
+	     btnMU_ON := "DGI".S77_6,
+	     btnMU_OF := "DGI".E77_7,
+	    
+	     set_time_notOn:=T#500ms,
+	     set_time_notOff:=T#500ms,
+	     set_time_notCMD:=T#500ms,
+	     setSpeedDU := "ServDB".M_224.SetSpeedDU,
+	     AU => "ServDB".M_224.AU,
+	     DU => "ServDB".M_224.DU,
+	     MU => "ServDB".M_224.MU,
+	    
+	     Fault => "ServDB".M_224.Fault,
+	     outFWD=> "ServDB".M_224.CMD_ON,
+	     outBKD=>"ServDB".M_224.CMD_OFF
+	     
+	    );
+	    
+	    "K1-224X1" := #M_224_Individ_dispensing.outFWD;
+	    "K1-224-x1.1" := #M_224_Individ_dispensing.outBKD;
+	    
+	    
+	    
+	    #M_225_Conveyor_with_lugs // Транспортер с бобышками после второй поштучной выдачи
+	(*
+	F225K1    I       2.4    BOOL    Контактор К1 Включен М225 сигналы                            DGI.    F225K1    :=    I       2.4    ; //    Контактор К1 Включен М225 сигналы
+	K1_225U1    I       7.4    BOOL    Пчт 225 в работе сигналы                            DGI.    K1_225U1    :=    I       7.4    ; //    Пчт 225 в работе сигналы
+	B14_0    I      14.0    BOOL    индуктивные датчики 1 М225 (поштучник) кейфазер1                            DGI.    B14_0    :=    I      14.0    ; //    индуктивные датчики 1 М225 (поштучник) кейфазер1
+	B14_1    I      14.1    BOOL    индуктивные датчики 2 М225( поштучник) кейфазер2                            DGI.    B14_1    :=    I      14.1    ; //    индуктивные датчики 2 М225( поштучник) кейфазер2
+	S14_2    I      14.2    BOOL    Максимальная ширина доски концевик М225 зона                            DGI.    S14_2    :=    I      14.2    ; //    Максимальная ширина доски концевик М225 зона
+	S14_3    I      14.3    BOOL    Минимальная ширина доски концевик М225 зона                            DGI.    S14_3    :=    I      14.3    ; //    Минимальная ширина доски концевик М225 зона
+	B14_4    I      14.4    BOOL    счет доски М225 зона после бобышек                            DGI.    B14_4    :=    I      14.4    ; //    счет доски М225 зона после бобышек
+	B14_5    I      14.5    BOOL    счет доски М225 зона после бобышек                            DGI.    B14_5    :=    I      14.5    ; //    счет доски М225 зона после бобышек
+	B14_6    I      14.6    BOOL    счет доски М225 зона после бобышек                            DGI.    B14_6    :=    I      14.6    ; //    счет доски М225 зона после бобышек
+	K1_225U    PQW   520    WORD
+	K1_225X1    Q       2.5    BOOL    включение контактора К1-225 ПЧТ транспортер бобышек
+	K1_225U2    Q       8.6    BOOL    Старт ПЧТ 225
+	
+	*)
+	    (OnSig := "DGI".F225K1 AND "DGI".K1_225U1,
+	     Ready := "ALG".Ready_Sorting,
+	     Reset := "DGI".S76_2 OR "ALG".Reset,
+	     btnAU := "ALG".Auto_Sorting OR "ServDB".M_225.BtnAU,
+	     btnDU := "ServDB".M_225.BtnDU,
+	     prmDU := TRUE,
+	     btnDU_ON := "ServDB".M_225.BtnFwd,
+	     btnDU_OF := "ServDB".M_225.BtnCmdStop,
+	     Set_T_notON := T#500ms,
+	     Set_T_notOFF := T#1s,
+	     setSpeedDU := "ServDB".M_225.SetSpeedDU,
+	     AU => "ServDB".M_225.AU,
+	     DU => "ServDB".M_225.DU,
+	     MU => "ServDB".M_225.MU,
+	     Alarm => "ServDB".M_225.Alarm,
+	     Fault => "ServDB".M_225.Fault,
+	     onOutFWD => "ServDB".M_225.CMD_ON,
+	     PRM_btnDU_ON => "ServDB".M_225.PrmBtnDU_ON,
+	     PRM_btnDU_OFF => "ServDB".M_225.PrmBtnDU_OF
+	    );
+	    
+	    "K1-225X1" := "ALG".Ready_Sorting;
+	    "K1-225U2" := #M_225_Conveyor_with_lugs.onOutFWD;
+	    
+	    
+	    
+	    #M_235_Movable_board  // Подвижный борт 2x0
+	(*
+	F235K1_235K2    I       3.4    BOOL    М235 включен сигналы                            DGI.    F235K1_235K2    :=    I       3.4    ; //    М235 включен сигналы
+	S80_4    I      28.4    BOOL    поднять, опустить Подвижный борт(М235)                            DGI.    S80_4    :=    I      28.4    ; //    поднять, опустить Подвижный борт(М235)
+	S80_5    I      28.5    BOOL    вперед подвижный борт(М235)                            DGI.    S80_5    :=    I      28.5    ; //    вперед подвижный борт(М235)
+	E80_6    I      28.6    BOOL    назад подвижный борт(М235)                            DGI.    E80_6    :=    I      28.6    ; //    назад подвижный борт(М235)
+	K1_235X1    Q       3.3    BOOL    запуск М235 вперед подвижный борт
+	K1_235X1_1    Q       5.7    BOOL    запуск М235 назад подвижный борт
+	*)
+	    (
+	     onSig:="DGI".PodBort_2,
+	     offSig:="DGI".PodBort_1,
+	     sigFeedback := "DGI".F235K1_235K2,
+	     hasFeedback := true,
+	     btnUp := "ServDB".M_235.BtnFwd,
+	     btnDown := "ServDB".M_235.BtnBwd,
+	     btnStop := "ServDB".M_235.BtnCmdStop,
+	     Ready := "ALG".Ready_Sorting,
+	     Reset := "DGI".S76_2 OR "ALG".Reset,
+	     prmDU := TRUE,
+	     btnAU := "ServDB".M_235.BtnAU OR "MovableBoard_CTRL_DB".AutoMode,
+	     btnDU := "ServDB".M_235.BtnDU AND NOT "MovableBoard_CTRL_DB".AutoMode,
+	     btnMU := "DGI".S80_5 OR "DGI".E80_6,
+	     btnMU_ON := "DGI".S80_5,
+	     btnMU_OF := "DGI".E80_6,
+	     set_time_notOn := T#500ms,
+	     set_time_notOff := T#500ms,
+	     set_time_notCMD := T#500ms,
+	     setSpeedDU := "ServDB".M_235.SetSpeedDU,
+	     AU => "ServDB".M_235.AU,
+	     DU => "ServDB".M_235.DU,
+	     MU => "ServDB".M_235.MU,
+	     Fault => "ServDB".M_235.Fault,
+	     outFWD => "ServDB".M_235.CMD_ON,
+	     outBKD => "ServDB".M_235.CMD_OFF
+	    );
+	    
+	    "K1-235X1" := #M_235_Movable_board.outFWD AND "DGI".S76_3;
+	    "K1-235X1.1" := #M_235_Movable_board.outBKD AND "DGI".S76_3;
+	    
+	    
+	    #M_231_Roller_conveyor // Рольганг 1x1
+	(*
+	F231K1    I       3.0    BOOL    Контактор К1 Включен М231 сигналы                            DGI.    F231K1    :=    I       3.0    ; //    Контактор К1 Включен М231 сигналы
+	K1_231U1    I       7.5    BOOL    ПЧТ 231 в работе сигналы                            DGI.    K1_231U1    :=    I       7.5    ; //    ПЧТ 231 в работе сигналы
+	K1_231U    PQW   522    WORD
+	K1_231X1    Q       2.6    BOOL    включение контактора К1-231 ПЧТ ролики торцовочные
+	K1_231U2    Q       8.7    BOOL    Старт ПЧТ 231
+	
+	*)
+	    (
+	     OnSig := "DGI".F231K1 AND "DGI".K1_231U1,
+	     Ready := "ALG".Ready_Sorting,
+	     Reset := "DGI".S76_2 OR "ALG".Reset,
+	     btnAU := "ALG".Auto_Sorting OR "ServDB".M_213.BtnAU,
+	     btnDU := "ServDB".M_213.BtnDU,
+	     prmDU := TRUE,
+	     btnDU_ON := "ServDB".M_231.BtnFwd,
+	     btnDU_OF := "ServDB".M_231.BtnCmdStop,
+	     Set_T_notON := T#500ms,
+	     Set_T_notOFF := T#500ms,
+	     setSpeedDU := "ServDB".M_231.SetSpeedDU,
+	     AU => "ServDB".M_231.AU,
+	     DU => "ServDB".M_231.DU,
+	     MU => "ServDB".M_231.MU,
+	     Alarm => "ServDB".M_231.Alarm,
+	     Fault => "ServDB".M_231.Fault,
+	     onOutFWD => "ServDB".M_231.CMD_ON,
+	     PRM_btnDU_ON => "ServDB".M_231.PrmBtnDU_ON,
+	     PRM_btnDU_OFF => "ServDB".M_231.PrmBtnDU_OF
+	    );
+	    
+	    "K1-231X1" := "ALG".Ready_Sorting;
+	    "K1-231U2" := #M_231_Roller_conveyor.onOutFWD;
+	    
+	   
+	    
+	    #M_323_Small_Chain(OnSig := "DGI".F323K1_323K2 AND "DGI".K1_323U1,
+	                       Ready := "ALG".Ready_Sorting,
+	                       Reset := "DGI".S76_2 OR "ALG".Reset,
+	                       btnAU := ("ServDB".M_323.BtnAU OR "ALG".Auto_Sorting),
+	                       btnDU:="ServDB".M_323.BtnDU,
+	                       prmDU:=true,
+	                       btnDU_ON:="ServDB".M_323.BtnFwd,
+	                       btnDU_OF:="ServDB".M_323.BtnCmdStop,
+	                       (* btnMU :=  "DGI".E76_7 OR NOT "DGI".S76_6,
+	                       btnMU_ON :="DGI".E76_7,
+	                       btnMU_OF := NOT "DGI".E76_7, *)
+	                       Set_T_notON:=T#500ms, 
+	                       Set_T_notOFF:=T#500ms,
+	                       setSpeedDU:="ServDB".M_323.SetSpeedDU,
+	                       AU=>"ServDB".M_323.AU,
+	                       DU=>"ServDB".M_323.DU,
+	                       MU=>"ServDB".M_323.MU,
+	                       Alarm=>"ServDB".M_323.Alarm,
+	                       Fault=>"ServDB".M_323.Fault,
+	                       onOutFWD=>"ServDB".M_323.CMD_ON,
+	                       PRM_btnDU_ON=>"ServDB".M_323.PrmBtnDU_ON,
+	                       PRM_btnDU_OFF=>"ServDB".M_323.PrmBtnDU_OF,
+	                       setSpeed=>"ServDB".M_323.SetSpeed
+	                       
+	    );
+	    
+	    "K1-323X1" := "ALG".Ready_Sorting;
+	    "K1-323U2" := #M_323_Small_Chain.onOutFWD;
+	    
+	END_REGION
+	
+	
+	// ----------------------------------------------Подача прокладок----------------------------------------
+	// 
+	REGION Gasket_supply
+	    // Statement section REGION
+	    
+	(*
+	    М214    Приемный транспортер прокладок (1x1)
+	*)
+	    #M_214_Gasket_receiver(OnSig:= "DGI".F214K1,
+	                           //OnCom:=false,
+	                           Ready:= "ALG".Ready_Gasket,
+	                           Reset:="DGI".btn_Reset_OP3.ShortTap OR "ALG".Reset,
+	                           btnAU:= "ALG".Auto_Gasket OR "ServDB".M_214.BtnAU,
+	                           btnDU:= "ServDB".M_214.BtnDU AND NOT "ALG".Auto_Gasket,
+	                           prmDU:= TRUE,
+	                           btnDU_ON:= "ServDB".M_214.BtnFwd,
+	                           btnDU_OF:= NOT "ServDB".M_214.BtnFwd,
+	                           //btnMU:="ALG".Auto_Gasket AND NOT "ServDB".M_214.BtnDU,
+	                           //btnMU_ON:= "DGI".S214,
+	                           //btnMU_OF:= NOT "DGI".S214,
+	                           Set_T_notON:=T#500ms,
+	                           Set_T_notOFF:=T#500ms,
+	                           setSpeedDU:= "ServDB".M_214.SetSpeedDU,
+	                           AU=>"ServDB".M_214.AU,
+	                           DU=>"ServDB".M_214.DU,
+	                           MU=>"ServDB".M_214.MU,
+	                           Alarm=> "ServDB".M_214.Alarm,
+	                           Fault=>"ServDB".M_214.Fault,
+	                           onOutFWD=> "ServDB".M_214.CMD_ON,
+	                           PRM_btnDU_ON=> "ServDB".M_214.PrmBtnDU_ON,
+	                           PRM_btnDU_OFF=>"ServDB".M_214.PrmBtnDU_OF
+	    );
+	    
+	    "K1-214X1" := #M_214_Gasket_receiver.onOutFWD;
+	   
+	(*
+	         Первая горка после приемного транспортера прокладок
+	*)
+	    #M_312_First_slide(OnSig:="DGI".F312K1 AND #M_312_First_slide.onOutFWD,// AND "DGI".K1_312U1,
+	                       Ready:= "ALG".Ready_Gasket,
+	                       Reset:="DGI".btn_Reset_OP3.ShortTap OR "ALG".Reset,
+	                       btnAU:= "ALG".Auto_Gasket OR "ServDB".M_312.BtnAU,
+	                       btnDU:= "ServDB".M_312.BtnDU AND NOT "ALG".Auto_Gasket,
+	                       btnMU := false,
+	                       prmDU:= TRUE,
+	                       btnDU_ON:= "ServDB".M_312.BtnFwd,
+	                       btnDU_OF:= "ServDB".M_312.BtnCmdStop,
+	                       Set_T_notON:=T#700ms,
+	                       Set_T_notOFF:=T#700ms,
+	                       setSpeedDU:= "ServDB".M_312.SetSpeedDU,
+	                       AU=>"ServDB".M_312.AU,
+	                       DU=>"ServDB".M_312.DU,
+	                       MU=>"ServDB".M_312.MU,
+	                       Alarm=> "ServDB".M_312.Alarm,
+	                       Fault=>"ServDB".M_312.Fault,
+	                       onOutFWD=> "ServDB".M_312.CMD_ON,
+	                       PRM_btnDU_ON=> "ServDB".M_312.PrmBtnDU_ON,
+	                       PRM_btnDU_OFF=>"ServDB".M_312.PrmBtnDU_OF
+	    );
+	    
+	    "K1-312X1" := "ALG".Ready_Gasket;
+	    "K1-312U2" :=  #M_312_First_slide.onOutFWD;
+	    
+	    
+	(*
+	     М313    Транспортер после первой горки прокладок
+	*)
+	    #M_313_AF_slide_conv(OnSig:="DGI".F313K1_313K2,
+	                         //OnCom:=false,
+	                         Ready:= "ALG".Ready_Gasket,
+	                         Reset:="DGI".btn_Reset_OP3.ShortTap OR "ALG".Reset,
+	                         btnAU:= "ALG".Auto_Gasket OR "ServDB".M_313.BtnAU,
+	                         btnDU:= "ServDB".M_313.BtnDU AND NOT "ALG".Auto_Gasket,
+	                         prmDU:= TRUE,
+	                         btnDU_ON:= "ServDB".M_313.BtnFwd,
+	                         btnDU_OF:= "ServDB".M_313.BtnCmdStop,
+	                         Set_T_notON:=T#700ms,
+	                         Set_T_notOFF:=T#700ms,
+	                         setSpeedDU:= "ServDB".M_313.SetSpeedDU,
+	                         AU=>"ServDB".M_313.AU,
+	                         DU=>"ServDB".M_313.DU,
+	                         MU=>"ServDB".M_313.MU,
+	                         Alarm=> "ServDB".M_313.Alarm,
+	                         Fault=>"ServDB".M_313.Fault,
+	                         onOutFWD=> "ServDB".M_313.CMD_ON,
+	                         PRM_btnDU_ON=> "ServDB".M_313.PrmBtnDU_ON,
+	                         PRM_btnDU_OFF=>"ServDB".M_313.PrmBtnDU_OF
+	    );
+	    
+	    "K1-313X1" := #M_313_AF_slide_conv.onOutFWD;
+	    
+	    
+	(*
+	    М316    Транспортер загрузки прокладок в горку 2
+	*)
+	    #M_316_Padloader_IN2(OnSig:="DGI".F316K1,
+	                         //OnCom:=false,
+	                         Ready:= "ALG".Ready_Gasket,
+	                         Reset:= "DGI".btn_Reset_OP3.ShortTap OR "ALG".Reset,
+	                         btnAU:= "ALG".Auto_Gasket OR "ServDB".M_316.BtnAU,
+	                         btnDU:= "ServDB".M_316.BtnDU AND NOT "ALG".Auto_Gasket,
+	                         prmDU:= TRUE,
+	                         btnDU_ON:= "ServDB".M_316.BtnFwd,
+	                         btnDU_OF:= NOT "ServDB".M_316.BtnFwd,
+	                         Set_T_notON:=T#500ms,
+	                         Set_T_notOFF:=T#500ms,
+	                         setSpeedDU:= "ServDB".M_316.SetSpeedDU,
+	                         AU=>"ServDB".M_316.AU,
+	                         DU=>"ServDB".M_316.DU,
+	                         MU=>"ServDB".M_316.MU,
+	                         Alarm=> "ServDB".M_316.Alarm,
+	                         Fault=>"ServDB".M_316.Fault,
+	                         onOutFWD=> "ServDB".M_316.CMD_ON,
+	                         PRM_btnDU_ON=> "ServDB".M_316.PrmBtnDU_ON,
+	                         PRM_btnDU_OFF=>"ServDB".M_316.PrmBtnDU_OF
+	    );
+	    
+	    "K1-316X1" := #M_316_Padloader_IN2.onOutFWD;
+	    
+	(*
+	    М314    Вторая горка прокладок
+	*)
+	    #M_314_Second_slide(OnSig:="DGI".F314K1,
+	                        //OnCom:=false,,
+	                        Ready:= "ALG".Ready_Gasket,
+	                        Reset:="DGI".btn_Reset_OP3.ShortTap OR "ALG".Reset,
+	                        btnAU:="ALG".Auto_Gasket OR "ServDB".M_314.BtnAU,
+	                        btnDU:= "ServDB".M_314.BtnDU AND NOT "ALG".Auto_Gasket,
+	                        prmDU:= TRUE,
+	                        btnDU_ON:= "ServDB".M_314.BtnFwd,
+	                        btnDU_OF:= NOT "ServDB".M_314.BtnFwd,
+	                        btnMU:= "DGI".E85_4 AND NOT "ServDB".M_314.BtnDU,
+	                        btnMU_ON:="DGI".E85_4,
+	                        btnMU_OF:= NOT "DGI".E85_4,
+	                        Set_T_notON:=T#500ms,
+	                        Set_T_notOFF:=T#500ms,
+	                        setSpeedDU:= "ServDB".M_314.SetSpeedDU,
+	                        AU=>"ServDB".M_314.AU,
+	                        DU=>"ServDB".M_314.DU,
+	                        MU=>"ServDB".M_314.MU,
+	                        Alarm=> "ServDB".M_314.Alarm,
+	                        Fault=>"ServDB".M_314.Fault,
+	                        onOutFWD=> "ServDB".M_314.CMD_ON,
+	                        PRM_btnDU_ON=> "ServDB".M_314.PrmBtnDU_ON,
+	                        PRM_btnDU_OFF=>"ServDB".M_314.PrmBtnDU_OF
+	    );
+	    
+	    "K1-314X1" := #M_314_Second_slide.onOutFWD;
+	    
+	    
+	(*
+	    М315    Третья горка прокладок
+	*)
+	    #M_315_Third_slide(OnSig:="DGI".F315K1,
+	                       //OnCom:=false,
+	                       Ready:= "ALG".Ready_Gasket,
+	                       Reset:="DGI".btn_Reset_OP3.ShortTap OR "ALG".Reset,
+	                       btnAU:= "ALG".Auto_Gasket OR "ServDB".M_315.BtnAU,
+	                       btnDU:= "ServDB".M_315.BtnDU AND NOT "ALG".Auto_Gasket,
+	                       prmDU:= TRUE,
+	                       btnDU_ON:= "ServDB".M_315.BtnFwd,
+	                       btnDU_OF:= NOT "ServDB".M_315.BtnFwd,
+	                       btnMU:= "DGI".E85_4,
+	                       btnMU_ON:="DGI".E85_4,
+	                       btnMU_OF:= NOT "DGI".E85_4,
+	                       Set_T_notON:=T#500ms,
+	                       Set_T_notOFF:=T#500ms,
+	                       setSpeedDU:= "ServDB".M_315.SetSpeedDU,
+	                       AU=>"ServDB".M_315.AU,
+	                       DU=>"ServDB".M_315.DU,
+	                       MU=>"ServDB".M_315.MU,
+	                       Alarm=> "ServDB".M_315.Alarm,
+	                       Fault=>"ServDB".M_315.Fault,
+	                       onOutFWD=> "ServDB".M_315.CMD_ON,
+	                       PRM_btnDU_ON=> "ServDB".M_315.PrmBtnDU_ON,
+	                       PRM_btnDU_OFF=>"ServDB".M_315.PrmBtnDU_OF
+	    );
+	    
+	    
+	    "K1-315X1" := #M_315_Third_slide.onOutFWD;
+	    
+	(*
+	    М234    Транспортер загрузки прокладок перед каруселью
+	*)
+	    #M_234_Carousel_loader(OnSig:="DGI".F234K1,
+	                           Ready:= "ALG".Ready_Gasket,
+	                           Reset:="DGI".btn_Reset_OP3.ShortTap OR "ALG".Reset,
+	                           btnAU:= "ALG".Auto_Gasket OR "ServDB".M_234.BtnAU,
+	                           btnDU:= "ServDB".M_234.BtnDU AND NOT "ALG".Auto_Gasket,
+	                           prmDU:= TRUE,
+	                           btnDU_ON:= "ServDB".M_234.BtnFwd,
+	                           btnDU_OF:= "ServDB".M_234.BtnCmdStop,
+	                           btnMU:= "DGI".S85_5 OR "DGI".E85_6,
+	                           btnMU_ON:= "DGI".E85_6 OR "DGI".S85_5,
+	                           btnMU_OF:= NOT ("DGI".S85_5 OR "DGI".E85_6),
+	                           Set_T_notON:=T#1s,
+	                           Set_T_notOFF:=T#500ms,
+	                           setSpeedDU:= "ServDB".M_234.SetSpeedDU,
+	                           AU=>"ServDB".M_234.AU,
+	                           DU=>"ServDB".M_234.DU,
+	                           MU=>"ServDB".M_234.MU,
+	                           Alarm=> "ServDB".M_234.Alarm,
+	                           Fault=>"ServDB".M_234.Fault,
+	                           onOutFWD=> "ServDB".M_234.CMD_ON,
+	                           PRM_btnDU_ON=> "ServDB".M_234.PrmBtnDU_ON,
+	                           PRM_btnDU_OFF=>"ServDB".M_234.PrmBtnDU_OF
+	                           
+	    );
+	    
+	    "K1-234X1" := #M_234_Carousel_loader.onOutFWD;
+	    
+	END_REGION
+	
+	
+	// ---------------------------------------------------ПФМ Брака------------------------------------------
+	// 
+	REGION PFM_Defective
+	    // Statement section REGION
+	    // 
+	    #M_330_Scrap_Conv(OnSig:="DGI".F330K1,
+	                      Ready:="ALG".Ready_defect,
+	                      Reset:="ALG".Reset OR "DGI".S76_2,
+	                      btnAU:= "ALG".Auto_defect OR "ServDB".M_330.BtnAU,
+	                      btnDU:="ServDB".M_330.BtnDU,
+	                      prmDU:=TRUE,
+	                      btnDU_ON:="ServDB".M_330.BtnFwd,
+	                      btnDU_OF:="ServDB".M_330.BtnCmdStop,
+	                      btnMU := NOT ("ALG".Auto_defect OR "ServDB".M_330.BtnAU),
+	                      btnMU_ON := "DGI".S90_1,
+	                      btnMU_OF := NOT "DGI".S90_1,
+	                      Set_T_notON:=T#500ms,
+	                      Set_T_notOFF:=T#500ms,
+	                      AU=>"ServDB".M_330.AU,
+	                      DU=>"ServDB".M_330.DU,
+	                      MU=>"ServDB".M_330.MU,
+	                      Alarm=> "ServDB".M_330.Alarm,
+	                      Fault=>"ServDB".M_330.Fault,
+	                      onOutFWD=>"ServDB".M_330.CMD_ON,
+	                      PRM_btnDU_ON=>"ServDB".M_330.PrmBtnDU_ON,
+	                      PRM_btnDU_OFF=>"ServDB".M_330.PrmBtnDU_OF);
+	    
+	    "K1-330X1" := #M_330_Scrap_Conv.onOutFWD;
+	    
+	    
+	    (*
+	М331 Ленточный транспортер приема брака (1x1)
+	331K1   %I6.0   М331 включен сигналы
+	S90.1   %I38.1  М331 вперед ленточный транспортер брака ОР5
+	K1-331X1    %Q6.0   запуск М331 ленточный транспортер брака
+	*)
+	    
+	    #M_331_Scrap_conveyor(OnSig := "DGI".F331K1,
+	                          //OnCom:= "ПФМ Брака_DB_1".m331.AutoFwd,
+	                          Ready := "ALG".Ready_defect,
+	                          Reset := "DGI".S76_2,
+	                          btnAU := "ALG".Auto_defect OR "ServDB".M_331.BtnAU,
+	                          btnDU := "ServDB".M_331.BtnDU,
+	                          prmDU := TRUE,
+	                          btnDU_ON := "ServDB".M_331.BtnFwd,
+	                          btnDU_OF := "ServDB".M_331.BtnCmdStop,
+	                          btnMU := NOT ("ALG".Auto_defect OR "ServDB".M_331.BtnAU),
+	                          btnMU_ON := "DGI".S90_1,
+	                          btnMU_OF := NOT "DGI".S90_1,
+	                          Set_T_notON := T#500ms,
+	                          Set_T_notOFF := T#500ms,
+	                          //setSpeedAU:=0.0,
+	                          setSpeedDU := "ServDB".M_331.SetSpeedDU,
+	                          AU => "ServDB".M_331.AU,
+	                          DU => "ServDB".M_331.DU,
+	                          MU => "ServDB".M_331.MU,
+	                          Alarm => "ServDB".M_331.Alarm,
+	                          Fault => "ServDB".M_331.Fault,
+	                          onOutFWD => "ServDB".M_331.CMD_ON,
+	                          PRM_btnDU_ON => "ServDB".M_331.PrmBtnDU_ON,
+	                          PRM_btnDU_OFF => "ServDB".M_311.PrmBtnDU_OF
+	                          //setSpeed => "ServDB".M_311.SetSpeed
+	                          
+	    );
+	    
+	    "K1-331X1" := #M_331_Scrap_conveyor.onOutFWD;
+	    "ServDB".M_331.ON := "DGI".F331K1;
+	    
+	(*
+	   М332 Транспортер с бобышками сброса с рольганга брака (1x1)
+	   K1-332U //no comment
+	*)
+	    
+	    #M_332_Dump_lug_conv(OnSig := "DGI".F332K1 AND "DGI".K1_332U1,
+	                         Ready := "ALG".Ready_defect,
+	                         Reset := "DGI".S76_2,
+	                         btnAU := "ALG".Auto_defect OR "ServDB".M_332.BtnAU,
+	                         btnDU := "ServDB".M_332.BtnDU,
+	                         prmDU := TRUE,
+	                         btnDU_ON := "ServDB".M_332.BtnFwd,
+	                         btnDU_OF := "ServDB".M_332.BtnCmdStop,
+	                         btnMU := NOT ("ALG".Auto_defect OR "ServDB".M_332.BtnAU),
+	                         btnMU_ON := "DGI".S79_4,
+	                         btnMU_OF := "DGI".BrakDroper_front,
+	                         Set_T_notON := T#500ms,
+	                         Set_T_notOFF := T#500ms,
+	                         setSpeedDU := "ServDB".M_332.SetSpeedDU,
+	                         AU => "ServDB".M_332.AU,
+	                         DU => "ServDB".M_332.DU,
+	                         MU => "ServDB".M_332.MU,
+	                         Alarm => "ServDB".M_332.Alarm,
+	                         Fault => "ServDB".M_332.Fault,
+	                         onOutFWD => "ServDB".M_332.CMD_ON,
+	                         PRM_btnDU_ON => "ServDB".M_332.PrmBtnDU_ON,
+	                         PRM_btnDU_OFF => "ServDB".M_332.PrmBtnDU_OF
+	    );
+	    
+	    "K1-332x1" := "ALG".Ready_defect;
+	    "K1-332U2" := #M_332_Dump_lug_conv.onOutFWD;
+	    
+	(*
+	    М333 Рольганг брака после ленточного (1x1)
+	    K1-333U //no comment
+	*)
+	    
+	    #M_333_Defective_roller(OnSig := "DGI".F333K1 AND "DGI".K1_333U1,
+	                            Ready := "ALG".Ready_defect,
+	                            Reset := "DGI".S76_2 OR "ALG".Reset,
+	                            btnAU := "ALG".Auto_defect OR "ServDB".M_333.BtnAU,
+	                            btnDU := "ServDB".M_333.BtnDU,
+	                            prmDU := TRUE,
+	                            btnDU_ON := "ServDB".M_333.BtnFwd,
+	                            btnDU_OF := "ServDB".M_333.BtnCmdStop,
+	                            btnMU := NOT ("ALG".Auto_defect OR "ServDB".M_333.BtnAU),
+	                            btnMU_ON := "DGI".S90_2,
+	                            btnMU_OF := NOT "DGI".S90_2,
+	                            Set_T_notON := T#500ms,
+	                            Set_T_notOFF := T#500ms,
+	                            setSpeedDU := "ServDB".M_333.SetSpeedDU,
+	                            AU => "ServDB".M_333.AU,
+	                            DU => "ServDB".M_333.DU,
+	                            MU => "ServDB".M_333.MU,
+	                            Alarm => "ServDB".M_333.Alarm,
+	                            Fault =>  "ServDB".M_333.Fault,
+	                            onOutFWD => "ServDB".M_333.CMD_ON,
+	                            PRM_btnDU_ON => "ServDB".M_333.PrmBtnDU_ON,
+	                            PRM_btnDU_OFF => "ServDB".M_333.PrmBtnDU_OF
+	    );
+	    
+	    "K1--333X1" := "ALG".Ready_defect;
+	    "K1-333U2" := #M_333_Defective_roller.onOutFWD;
+	    
+	(*
+	    М334 Транспортер набора слоя брака перед ПФМ (1x1)
+	    K1-334U // no comment
+	*)
+	    
+	    #M_334_Layer_set_conv(OnSig := "DGI".F334K1 AND "DGI".K1_334U1,
+	                          Ready := "ALG".Ready_defect,
+	                          Reset := "DGI".S76_2 OR "ALG".Reset,
+	                          btnAU := "ALG".Auto_defect OR "ServDB".M_334.BtnAU,
+	                          btnDU := "ServDB".M_334.BtnDU AND NOT "ALG".Auto_defect,
+	                          prmDU := True,
+	                          btnDU_ON := "ServDB".M_334.BtnFwd,
+	                          btnDU_OF := "ServDB".M_334.BtnCmdStop,
+	                          btnMU := "DGI".S79_5,
+	                          btnMU_ON := "DGI".S79_5,
+	                          btnMU_OF := NOT "DGI".S79_5,
+	                          Set_T_notON := T#500ms,
+	                          Set_T_notOFF := T#500ms,
+	                         
+	                          setSpeedDU := "ServDB".M_334.SetSpeedDU,
+	                          AU => "ServDB".M_334.AU,
+	                          DU => "ServDB".M_334.DU,
+	                          MU => "ServDB".M_334.MU,
+	                          Alarm => "ServDB".M_334.Alarm,
+	                          Fault => "ServDB".M_334.Fault,
+	                          onOutFWD => "ServDB".M_334.CMD_ON,
+	                          PRM_btnDU_ON => "ServDB".M_334.PrmBtnDU_ON,
+	                          PRM_btnDU_OFF => "ServDB".M_334.PrmBtnDU_OF
+	    );
+	    
+	    "K1-334X1" := "ALG".Ready_defect;
+	    "K1-334U2" := #M_334_Layer_set_conv.onOutFWD;
+	    
+	    
+	(* удалить
+	"K1-212X1" := "Ready";
+	"K1-212U2" := #M_212_Sort_Elevator.outBKD OR #M_212_Sort_Elevator.outFWD;
+	"K1-212X1.1" := #M_212_Sort_Elevator.outFWD OR #M_212_Sort_Elevator.outBKD;
+	"K1-212U2.2" := #M_212_Sort_Elevator.outBKD;
+	*)
+	    
+	(*
+	    M335 Вилы брака ПФМ
+	*)
+	    
+	    #M_335_Lay_fork_scrap(OnSig := "DGI".S22_3,
+	                          OffSig := "DGI".S22_2,
+	                          sigFeedBack := "DGI".F335K1 AND "DGI".K1_335U1,
+	                          hasFeedBack := true,
+	                          btnDU_ON := "ServDB".M_335.BtnFwd,
+	                          btnDU_OF := "ServDB".M_335.BtnBwd,
+	                          Ready := "ALG".Ready_defect,
+	                          Reset := "DGI".S76_2 OR "ALG".Reset,
+	                          btnAU := "ALG".Auto_defect OR "ServDB".M_335.BtnAU,
+	                          btnDU := "ServDB".M_335.BtnDU,
+	                          prmDU := TRUE,
+	                          btnMU := "DGI".E90_5 OR "DGI".S90_4 OR "DGI".S79_6 OR "DGI".E79_7,
+	                          btnMU_ON := "DGI".S90_4 OR "DGI".S79_6,
+	                          btnMU_OF :=  "DGI".E90_5 OR "DGI".E79_7,
+	                          Set_T_notON := T#17s,
+	                          Set_T_notOFF := T#17s,
+	                          time_notFeedBack := T#500ms,
+	                          time_notCMD := T#500ms,
+	                          setSpeedDU := "ServDB".M_335.SetSpeedDU,
+	                          AU => "ServDB".M_335.AU,
+	                          DU => "ServDB".M_335.DU,
+	                          MU => "ServDB".M_335.MU,
+	                          Fault => "ServDB".M_335.Fault,
+	                          onOutFWD => "ServDB".M_335.CMD_ON,
+	                          onOutBWD => "ServDB".M_335.CMD_OFF,
+	                          setSpeed=>"ServDB".M_335.SetSpeed
+	                          
+	    );
+	    
+	    "K1-335X1" := "ALG".Ready_defect;
+	    "K1-335U2" := #M_335_Lay_fork_scrap.onOutBWD OR #M_335_Lay_fork_scrap.onOutFWD;
+	    "K1-335U2.2" := #M_335_Lay_fork_scrap.onOutBWD;
+	    
+	    
+	(*
+	    М336 Лифт брака ПФМ+тормоз
+	*)
+	    #M_336_PFM_elevator(onSig := "DGI".B22_5,
+	                        offSig := "DGI".B22_4,
+	                        sigFeedback := "DGI".F336K1 AND "DGI".K1_336U1,
+	                        hasFeedback := TRUE,
+	                        btnUp := "ServDB".M_336.BtnFwd,
+	                        btnDown := "ServDB".M_336.BtnBwd,
+	                        btnStop := "ServDB".M_336.BtnCmdStop,
+	                        Ready := "ALG".Ready_defect,
+	                        Reset := "DGI".S76_2 OR "ALG".Reset,
+	                        prmDU := true,
+	                        btnAU := "ALG".Auto_defect OR "ServDB".M_336.BtnAU,
+	                        btnDU := "ServDB".M_336.BtnDU,
+	                        btnMU := "DGI".E91_1 OR "DGI".S91_0 OR "DGI".S80_2 OR "DGI".E80_3 OR NOT ("ALG".Auto_defect OR "ServDB".M_336.BtnAU OR "ServDB".M_336.BtnDU),
+	                        btnMU_ON := "DGI".E91_1 OR "DGI".E80_3 ,
+	                        btnMU_OF := "DGI".S91_0 OR "DGI".S80_2,
+	                        set_time_notOn := T#500ms,
+	                        set_time_notOff := T#500ms,
+	                        set_time_notCMD := T#500ms,
+	                        setSpeedDU := "ServDB".M_336.SetSpeedDU,
+	                        AU => "ServDB".M_336.AU,
+	                        DU => "ServDB".M_336.DU,
+	                        MU => "ServDB".M_336.MU,
+	                        Fault => "ServDB".M_336.Fault,
+	                        outFWD => "ServDB".M_336.CMD_ON,
+	                        outBKD => "ServDB".M_336.CMD_OFF);
+	    
+	    
+	    "K1-336X1" := "ALG".Ready_defect;
+	    "K1-336X1.1" := #M_336_PFM_elevator.outBKD OR #M_336_PFM_elevator.outFWD;
+	    "K1-336U2" := #M_336_PFM_elevator.outBKD OR #M_336_PFM_elevator.outFWD;
+	    "K1-336U2.2" := #M_336_PFM_elevator.outFWD;
+	END_REGION
+	
+	
+	
+END_FUNCTION_BLOCK
+

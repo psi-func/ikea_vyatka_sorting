@@ -1,0 +1,211 @@
+﻿FUNCTION_BLOCK "FB_Ramp"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      add_lay : Bool;   // еще слой
+      to_empty : Bool;   // ложементы очищены
+      new_packet : Bool;   // новый пакет
+      push_packet : Bool;   // форсим пакет
+      pick_gaskets : Bool;   // нужен слой прокладок
+      gaskets_acquire : Bool;   // можно забирать с крюков
+      gaskets_released : Bool;   // можно опускать
+      gaskets_busy : Bool;
+      mode_no_gasket : Bool;   // режим без прокладок
+      forks_start_sensor : Bool;
+      open_lodems_sensor : Bool;
+      top_sensor : Bool;
+      mid_sensor : Bool;
+      low_sensor : Bool;
+      QPLanksLayers : Int;
+   END_VAR
+
+   VAR_OUTPUT 
+      carousel_full_reset : Bool;
+      last_lay : Bool;
+      down_working : Bool;
+      make_gasket_layer : Bool;
+      ramp_not_up : Bool;
+      ramp_not_down : Bool;
+      CMD_On : Bool;
+      CMD_Mid : Bool;
+      CMD_Off : Bool;
+      CMD_OpenLodems : Bool;
+      CMD_CloseLodems : Bool;
+      layer_holded : Int;
+   END_VAR
+
+   VAR 
+      s_busy : Bool;
+      s_lay_cmd_permission : Bool;
+      _State : Int;
+   END_VAR
+
+   VAR CONSTANT 
+      STATE_INIT : Int := 0;
+      STATE_AWAIT : Int := 3;
+      STATE_RELEASE_GASKETS : Int := 5;
+      STATE_OPENING_LODEMS : Int := 6;
+      STATE_ACQUIRE_GASKETS : Int := 7;
+      STATE_PUSHING_PACKET : Int := 9;
+   END_VAR
+
+
+BEGIN
+	
+	#ramp_not_up := (#ramp_not_up OR (#mid_sensor OR #low_sensor)) AND NOT #top_sensor;
+	#ramp_not_down := (#ramp_not_down OR (#mid_sensor OR #top_sensor)) AND NOT #low_sensor;
+	
+	#carousel_full_reset := FALSE;
+	
+	IF (#to_empty) THEN
+	    #s_busy := FALSE;
+	END_IF;
+	
+	IF (#add_lay) THEN
+	    #last_lay := false;
+	END_IF;
+	
+	
+	StartAutomat:
+	CASE #_State OF
+	    #STATE_INIT:
+	        #CMD_On := FALSE;
+	        #CMD_Mid := TRUE;
+	        #CMD_Off := False;
+	        
+	        #CMD_OpenLodems := FALSE;
+	        
+	        #s_busy := FALSE;
+	        #down_working := FALSE;
+	        
+	        #last_lay := FALSE;
+	        #layer_holded := 0;
+	        
+	        #make_gasket_layer := FALSE;
+	        
+	        #_State := #STATE_AWAIT;
+	        
+	    #STATE_AWAIT:
+	        #CMD_On := FALSE;
+	        #CMD_Mid := TRUE;
+	        #CMD_Off := False;
+	        
+	        #CMD_OpenLodems := NOT #ramp_not_down;
+	        
+	        #down_working := False;
+	        
+	        #s_lay_cmd_permission := TRUE;
+	        
+	        // пушим пакет
+	        IF (#push_packet) THEN
+	            #_State := #STATE_PUSHING_PACKET;
+	            GOTO EndAutomat;
+	        END_IF;
+	        
+	        
+	        IF (#s_busy) THEN
+	            IF (#pick_gaskets AND #forks_start_sensor) THEN
+	                #_State := #STATE_RELEASE_GASKETS;
+	            END_IF;
+	        ELSE
+	            
+	            IF (#gaskets_acquire) THEN
+	                #_State := #STATE_ACQUIRE_GASKETS;
+	            ELSE
+	                ;
+	            END_IF;
+	            
+	        END_IF;
+	        
+	        
+	    #STATE_RELEASE_GASKETS:
+	        
+	        #CMD_On := FALSE;
+	        #CMD_Mid := FALSE;
+	        #CMD_Off := #forks_start_sensor;
+	        
+	        #CMD_OpenLodems := FALSE;
+	        
+	        #down_working := TRUE;
+	        
+	        IF (#low_sensor) THEN
+	            #_State := #STATE_OPENING_LODEMS;
+	        END_IF;
+	            
+	    #STATE_OPENING_LODEMS:
+	        #CMD_On := FALSE;
+	        #CMD_Mid := FALSE;
+	        #CMD_Off := TRUE;
+	        
+	        #CMD_OpenLodems := TRUE;
+	        
+	        #down_working := True;
+	        
+	        IF (#open_lodems_sensor AND #low_sensor) THEN
+	            // ложементы свободны
+	            #s_busy := FALSE;
+	            
+	            #_State := #STATE_AWAIT;
+	        END_IF;
+	        
+	     
+	    #STATE_ACQUIRE_GASKETS:
+	            
+	        #CMD_On := TRUE;
+	        #CMD_Mid := FALSE;
+	        #CMD_Off := False;
+	            
+	        #CMD_OpenLodems := NOT #ramp_not_down;
+	            
+	        #s_lay_cmd_permission := FALSE;
+	            
+	        IF (NOT #gaskets_acquire AND #gaskets_released) THEN
+	                
+	            #s_busy := TRUE;
+	            #layer_holded := #layer_holded + 1;
+	                
+	            // решаем, надо ли еще слой прокладок положить
+	            // TODO
+	            // 
+	            #last_lay := #layer_holded >= #QPLanksLayers - 1;
+	
+	            #_State := #STATE_AWAIT;
+	                
+	        END_IF;
+	        
+	    #STATE_PUSHING_PACKET:
+	        
+	        #s_lay_cmd_permission := FALSE;
+	        
+	        IF (NOT #s_busy AND (#gaskets_acquire OR NOT #gaskets_busy)) THEN
+	            #CMD_On := TRUE;
+	            #CMD_Mid := FALSE;
+	            #CMD_Off := False;
+	            
+	            #CMD_OpenLodems := FALSE;
+	            
+	            // full reset carousel
+	            // 
+	            #carousel_full_reset := TRUE;
+	            
+	        END_IF;
+	        
+	        IF (#new_packet) THEN
+	            #_State := #STATE_INIT;
+	        END_IF;
+	        
+	        
+	END_CASE;
+	
+	EndAutomat:
+	
+	#CMD_CloseLodems := NOT #CMD_OpenLodems;
+	
+	// make new layer
+	// 
+	#make_gasket_layer := #s_lay_cmd_permission AND NOT #gaskets_busy AND (NOT (#mode_no_gasket OR #last_lay));
+	
+	
+	
+END_FUNCTION_BLOCK
+

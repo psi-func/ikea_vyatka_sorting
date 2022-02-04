@@ -1,0 +1,23 @@
+﻿FUNCTION_BLOCK "SensorRuntime_checker"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR 
+      LoweringSensorPFM_Brak { S7_SetPoint := 'False'} : "Sensor_sticking_checker";   // датчик приопускания пакета пфм брака
+      PFM_brak_boardcounter : "Sensor_sticking_checker";   // датчик счета доски на пфм брака
+   END_VAR
+
+
+BEGIN
+	#LoweringSensorPFM_Brak(SensorSig:= "B22.6",
+	                        StickCondition:= "ALG".Auto_defect AND NOT "ПФМ Брака_DB_1".LiftPushingPacket AND "ПФМ Брака_DB_1".HodVil,
+	                        Reset:= "S76.2",
+	                        Stick_time:=T#20s);
+	
+	#PFM_brak_boardcounter(SensorSig:="FC 22.7",
+	                       StickCondition:= "ALG".Auto_defect AND "IM".M_334_Layer_set_conv.onOutFWD,
+	                       Reset:="S76.2",
+	                       Stick_time:=T#10s);
+	
+	
+END_FUNCTION_BLOCK
+

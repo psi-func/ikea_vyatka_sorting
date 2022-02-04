@@ -1,0 +1,471 @@
+﻿FUNCTION_BLOCK "FB_Link_Server"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR 
+      OperatorDetected : Bool;   // Можно начинать пересортировку оператор начал смену
+      PackResortedReaded : Bool;   //     Пересортированный пакет прочитан
+      FinishPackResorting : Bool;   //     Принудительно закончить пересортировку пакета
+      Enable2Sxema : Bool;   // Собрать пакет 2мя схемами прокладок
+      EnableRolling : Bool;   // Раскатать доски пакета на заданную длину
+      SettingsWasApplyied : Bool;   // Были применены новые  настройки
+      CheckPlankL : Bool;   // Проверять длину доски
+      FinishDefectPack : Bool;   // Принудительно закончить сборку пакета  ПФМ брака
+      DefectPacketPushed : Bool;   // пакет на ПФМ брака забрали
+      PackDefectReaded : Bool;   // пакет на ПФМ брака прочитан сервером 
+      PackParamChanged : Bool;   // Изменить параметры пакета
+      PackReadyRidOff : Bool;   // пакет готов к выкатке
+      GasketRidedOff : Bool;   // прокладку забрали с рамы
+      PackToPack : Bool;   // режим из пакета в пакет
+      AddGasketLayer : Bool;   // еще слой прокладки
+      PackBrakParamChanged : Bool;   // корректировка параметров пакета брака
+      QPlankLayers : Int;   // Количество слоев в пакете
+      VPlanksInPack : Int;   //     Объём досок в пакете, м3
+      QPlanksInLayer : Int;   //     Кол-во досок в слое досок пакета, шт
+      QPlanksInLayerBrak : Int;   //     Кол-во досок в слое досок пакета брака, шт
+      QPLankLayersBrak : Int;   //  Кол-во слоёв в пакете брака, шт
+      Sxema : DInt;   //   Схема укладки прокладок
+      SxemaNum : Int;   //     Номер схемы укладок прокладок
+      PlankW : Int;   //     Ширина доски, мм
+      PlankT : Int;   //     Толщина доски, мм
+      Sxema2 : DInt;   // Cхема 2 укладки прокладок
+      Sxema2Qlayers : Int;   //  Кол-во слоёв схемы 2 укладки прокладок
+      PackL : Int;   // Длина пересобираемого пакета
+      PartId : DInt;   // Ключ к пересобираемой партии (на случай перезапуска сервака)
+      PlankL : Int;   // проверяемая длина доски
+      ItemId : DInt;   // Ключ к номенклатуре пакета (на случай перезапуска сервака)
+      SetNumLayer : Int;   // Корректируемое кол-во уложенных слоев досокб шт
+      SetNumPlankInLayer : Int;   // Коррктируемое кол-во досок в слоеб шт
+      GeneralSpeed : Int := 50;   // Общая скорость линии
+      TotalPlanksInPack : Int;   // всего досок в пакете
+      SetNumPlanksInLayerBrak : Int;   // коррекция счета досок в слое брака
+      CheckL : Int;   // проверяемая длина доски
+      GasketBrakPut : Bool;   // положили бруски на пакет брака
+      GasketLayersPeriod : Int;   // Периодичность брусков пакета брака
+      LineInWork : Bool;   //     Линия в работе
+      PackResorting : Bool;   //     Пакет пересортировывается
+      PackResorted : Bool;   //     Пакет пересортировался
+      PackBrakComplete : Bool;   //  Пакет брака собран
+      RdyStartNewPack : Bool;   //     Есть готовность к пересборке нового пакета
+      RdyStart : Bool;   //     Есть готовность к запуску линии
+      DefectPacketResorted : Bool;   // Пакет на ПФМ брака пересортирован
+      NumLayerActual : Int;   //     Текущее кол-во уложенных слоёв досок, шт
+      NumPlanksInLayerActual : Int;   //     Текущее кол-во уложенных слоёв прокладок, шт
+      QPlanksOk : Int;   //     Текущее кол-во уложенных досок, шт
+      QPlanksNotOk : Int;   //     Текущее кол-во уложенных херовых досок, шт
+      VPlanksOk : DInt;   //     Текущий объём уложенных досок, м3*1000
+      QPlankBrak : Int;   // Кол-во досок в пакете брака
+      VLayerOk : DInt;   // Объем собирающегося слоя, м3
+      M_211 : "ServIM";   //      Загрузочный транспортёр
+      M_212 : "ServIM";   //      Загрузочный лифт сортировки+тормоз
+      M_213 : "ServIM";   //      Наклюнный транспортёр после лифта
+      M_214 : "ServIM";   //      Приёмный транспортёр прокладок
+      M_221 : "ServIM";   //      Горка основная
+      M_222 : "ServIM";   //      Транспортёр цепной после элеватора
+      M_223 : "ServIM";   //      Резерв
+      M_224 : "ServIM";   //      Упоры поштучника
+      M_225 : "ServIM";   //      Транспортёр бобышек
+      M_231 : "ServIM";   //      Ролики торцовочные
+      M_232 : "ServIM";   //      Лифт ПФМ
+      M_233 : "ServIM";   //      Вилы ПФМ
+      ForkRotator : "ServIM";   //  Поворот вилы основной ПФМ
+      M_234 : "ServIM";   //      Тр-тёр прокладок перед крючками ПФМ
+      M_235 : "ServIM";   //      Подвижной борт
+      M_311 : "ServIM";   //      Ленточный тр-тёр удаления прокладок
+      M_312 : "ServIM";   //      Горка прокладок 1
+      M_313 : "ServIM";   //      Тр-тёр прокладок после горки прокладок 1
+      M_314 : "ServIM";   //      Горка прокладок 2
+      M_315 : "ServIM";   //      Горка прокладок 3
+      M_316 : "ServIM";   //      Тр-тёр загрузки прокладок в горку 2
+      M_317 : "ServIM";   //      Основной транспортёр прокладок
+      GasketSupplier : "ServIM";   // Выдача прокладки на карусель
+      M_321 : "ServIM";   //      Выкатной транспортёр ПФМ 1
+      M_322 : "ServIM";   //      Выкатной транспортёр ПФМ 2
+      M_323 : "ServIM";
+      M_324 : "ServIM";   //      Выкатной транспортёр ПФМ 3 (выгрузка пакета)
+      M_325 : "ServIM";   //  Транспортер приема доски с Горки перед поштучкой
+      M_330 : "ServIM";   //  Ленточный транспортер брака
+      M_331 : "ServIM";   //      Ленточный транспортёр брака
+      M_332 : "ServIM";   //      Сбрасыватель с рольганга брака
+      M_333 : "ServIM";   //      Рольганг брака
+      M_334 : "ServIM";   //      Тр-тёр сбора слоя ПФМ брака
+      M_335 : "ServIM";   //      Вилы ПФМ брака
+      M_336 : "ServIM";   //      Лифт ПФМ брака
+      Alarm_List { S7_SetPoint := 'True'} : Array[0..255] of Bool;
+   END_VAR
+
+
+BEGIN
+	    //Сбросим задание на подвижный борт, после того как в FB_Link_Server он был взведен по новому заданию
+	    "ALG".ModeChang := FALSE;
+	    "ALG".ForceFinishMainPFM := FALSE;
+	    "ALG".ForceFinishPFMDefect := FALSE;
+	    "ALG".DefectivePacketIsPushed := FALSE;
+	    "ALG".EmptyLodems := FALSE;
+	    "ALG".AddGasketLayer := FALSE;
+	    "ALG".ConfirmGasketsBrak := FALSE;
+	    
+	    //Пришел бит с сервера "Начать новый пакет" (вместе с прочими исходными данными)
+	 //   IF #OperatorDetected THEN
+	 //       #QPlanksNotOk := 0;
+	 //       #QPlanksOk := 0;
+	        
+	        // В конце бит с сервера "Начать новый пакет" обнулим
+	 //       #OperatorDetected := FALSE;
+	 //   END_IF;
+	    
+	    //Ежели были применены новые настройки
+	    IF #SettingsWasApplyied THEN
+	        
+	      // для подвижного борта
+	        "ALG".ModeChang := true;
+	        
+	        // для определения задержки
+	        "ALG".PermMovM323 := "SolveLinearDelay"(LinearParam:=#PlankW, Koef:=2.5, Offset:=10);
+	        "ALG".SqueezeRamp := "SolveLinearDelay"(LinearParam := 60 - #PlankT,
+	                                                Koef := 10.0,
+	                                                Offset := 100);
+	        
+	        "ALG".SqueezeUporPFM := "SolveLinearDelay"(LinearParam := #PlankT,
+	                                                   Koef := 3.75,
+	                                                   Offset := 10);
+	        
+	        #PackResorted := FALSE;
+	        
+	        #RdyStartNewPack := False;
+	        
+	        #RdyStart := FALSE;
+	        #SettingsWasApplyied := FALSE;
+	        
+	       
+	    END_IF;
+	    
+	    
+	    
+	    //Пришел бит с сервера или кнопки "Принудительно завершить пересортировку пакета"
+	    IF #FinishPackResorting THEN
+	        
+	        //...//
+	        "ALG".ForceFinishMainPFM := TRUE;
+	        
+	        // В конце его обнулим
+	        #FinishPackResorting := FALSE;
+	    END_IF;
+	    
+	    //Пришел бит с сервера "Принудительно завершить пересортировку пакета брака"
+	    IF #FinishDefectPack THEN
+	        
+	        //...//
+	        "ALG".ForceFinishPFMDefect := TRUE;
+	        
+	        
+	        // В конце его обнулим
+	        #FinishDefectPack := FALSE;
+	    END_IF;
+	    
+	    IF (#DefectPacketPushed) THEN
+	        "ALG".DefectivePacketIsPushed := TRUE;
+	        
+	        #DefectPacketPushed := FALSE;
+	    END_IF;
+	    
+	    // Пришел битяра, что пакет брака прочитан и записан в ДБ
+	    IF (#PackDefectReaded) THEN
+	        
+	        #DefectPacketResorted := FALSE;
+	        #QPlanksNotOk := 0;
+	        
+	        #PackDefectReaded := False;
+	    END_IF;
+	    
+	    // Пришел бит на изменение кол-ва досок в слое, кол-во слоев в пакете
+	    IF (#PackParamChanged) THEN
+	        // если на раме прокладок сейчас ничего нет, то просто меняем внутренний счетчик
+	        IF ( "Сортировка_DB".LayersCounter <> #SetNumLayer) THEN
+	            IF ("FB_Ramp_DB".s_busy) THEN
+	                "FB_Ramp_DB".layer_holded := #SetNumLayer + 1;
+	            ELSE
+	                "FB_Ramp_DB".layer_holded := #SetNumLayer;
+	            END_IF;
+	        END_IF;
+	        
+	        "Сортировка_DB".LayersCounter := #SetNumLayer;
+	        "Сортировка_DB".BoardInLayerCounter := #SetNumPlankInLayer;
+	        
+	        
+	        
+	        #PackParamChanged := False;
+	    END_IF;
+	    
+	    
+	    // На пакет наклеили этикетку
+	    IF (#PackReadyRidOff) THEN
+	        // Переменная для работы логики фиксируется
+	        "ALG".PacketReadyRollOut := "S16.1" AND "B18.0" AND "Сортировка_DB".LiftPushingPacket;
+	        // сразу обнуляемся
+	        #PackReadyRidOff := FALSE;
+	    END_IF;
+	    
+	    //бит прокладочник очищен
+	    IF (#GasketRidedOff) THEN
+	        "ALG".EmptyLodems := TRUE;
+	        
+	        #GasketRidedOff := FALSE;
+	    END_IF;
+	    
+	    // бит добавить еще слой прокладок
+	    // 
+	    IF (#AddGasketLayer) THEN
+	        "ALG".AddGasketLayer := TRUE;
+	        
+	        #AddGasketLayer := FALSE;
+	    END_IF;
+	    
+	    IF (#GasketBrakPut) THEN
+	        "ALG".ConfirmGasketsBrak := "B22.6";
+	        
+	        #GasketBrakPut := FALSE;
+	    END_IF;
+	   
+	    //
+	    IF (#PackBrakParamChanged) THEN
+	        "ПФМ Брака_DB_1".BoardsInLayCounter := #SetNumPlanksInLayerBrak;
+	        
+	        #PackBrakParamChanged := FALSE;
+	    END_IF;
+	    
+	    //Пришел бит с сервера "Сервер прочитал что пакет пересобран" или бит "Принудительно завершить пересортировку пакета"
+	    IF #PackResortedReaded THEN
+	        
+	        //...// 
+	        
+	        //Обнулим задание на пересборку пакета и актуальные значения
+	(*        #NumGasketActual := 0;
+	        #NumLayerActual := 0;
+	        #PlankT := 0;
+	        #PlankW := 0;
+	        #Sxema := 0;
+	        #QPlanksInLayerBrak := 0;
+	        #QPlankLayers := 0;
+	        #QPlanksInLayer := 0;
+	        #QPlanksNotOk := 0;
+	        #QPlanksOk := 0;
+	        #SxemaNum := 0;
+	        #VPlanksOk := 0;
+	        #Sxema2 := 0;
+	        #Sxema2Qlayers := 0;
+	        #PackL := 0; *)
+	        //#PackId := 0;
+	        //
+	        #QPlanksOk := 0;
+	        "ALG".Volume := 0;
+	        #VPlanksOk := 0;
+	        
+	        #PackResorted := FALSE;
+	        
+	        // В конце его обнулим
+	        #PackResortedReaded := FALSE;
+	    END_IF;
+	    //==============================================================================================
+	    //M211 Загрузочный транспортер пакета
+	    
+	    (* IF #M_211.BtnAU THEN
+	        #M_211.BtnAU := FALSE;
+	    END_IF;
+	    IF #M_211.BtnDU THEN
+	        #M_211.BtnDU := FALSE;
+	    END_IF;
+	    IF #M_211.BtnFwd THEN
+	        #M_211.BtnFwd := FALSE;
+	    END_IF;
+	    IF #M_211.BtnBwd THEN
+	        #M_211.BtnBwd := FALSE;
+	    END_IF;
+	    IF #M_211.BtnCmdStop THEN
+	        #M_211.BtnCmdStop := FALSE;
+	    END_IF;     
+	    IF #M_211.BtnDU THEN
+	        "IM".M_211_Load_Transp.btnDU := TRUE;
+	        #M_211.BtnDU := FALSE;
+	        
+	    END_IF;*)
+	    
+	    
+	    REGION Список аварий заполнение
+	        // Motor faults
+	        // 
+	        #Alarm_List[0] := "IM".M_211_Load_Transp.notON;
+	        #Alarm_List[1] := "IM".M_211_Load_Transp.notOFF;
+	        #Alarm_List[2] := "IM".M_311_Strip_Remov.notON;
+	        #Alarm_List[3] := "IM".M_311_Strip_Remov.notOFF;
+	        #Alarm_List[4] := "IM".M_212_Sort_Elevator.notOn;
+	        #Alarm_List[5] := "IM".M_212_Sort_Elevator.notCMD;
+	        #Alarm_List[6] := "IM".M_212_Sort_Elevator.notOff;
+	        #Alarm_List[7] := "IM".M_212_Sort_Elevator.wrong_state;
+	        #Alarm_List[8] := "IM".M_212_Sort_Elevator.wrong_CMD;
+	        #Alarm_List[9] := "IM".M_213_ConvElevator.notON;
+	        #Alarm_List[10] := "IM".M_213_ConvElevator.notOFF;
+	        #Alarm_List[11] := "IM".M_222_Main_Sort_Slide.notON;
+	        #Alarm_List[12] := "IM".M_222_Main_Sort_Slide.notOFF;
+	        #Alarm_List[13] := "IM".M_325_Tr_Hill.notON;
+	        #Alarm_List[14] := "IM".M_325_Tr_Hill.notOFF;
+	        #Alarm_List[15] := "IM".M_223_Evaluation_area.notON;
+	        #Alarm_List[16] := "IM".M_223_Evaluation_area.notOFF;
+	        #Alarm_List[17] := "IM".M_224_Individ_dispensing.notOn;
+	        #Alarm_List[18] := "IM".M_224_Individ_dispensing.notCMD;
+	        #Alarm_List[19] := "IM".M_224_Individ_dispensing.notOff;
+	        #Alarm_List[20] := "IM".M_224_Individ_dispensing.wrong_state;
+	        #Alarm_List[21] := "IM".M_224_Individ_dispensing.wrong_CMD;
+	        #Alarm_List[22] := "IM".M_225_Conveyor_with_lugs.notON;
+	        #Alarm_List[23] := "IM".M_225_Conveyor_with_lugs.notOFF;
+	        #Alarm_List[24] := "IM".M_235_Movable_board.notOn;
+	        #Alarm_List[25] := "IM".M_235_Movable_board.notCMD;
+	        #Alarm_List[26] := "IM".M_235_Movable_board.notOff;
+	        #Alarm_List[27] := "IM".M_235_Movable_board.wrong_state;
+	        #Alarm_List[28] := "IM".M_235_Movable_board.wrong_CMD;
+	        #Alarm_List[29] := "IM".M_231_Roller_conveyor.notON;
+	        #Alarm_List[30] := "IM".M_231_Roller_conveyor.notOFF;
+	        #Alarm_List[31] := "IM".M_323_Small_Chain.notON;
+	        #Alarm_List[32] := "IM".M_323_Small_Chain.notOFF;
+	        #Alarm_List[33] := "IM".M_214_Gasket_receiver.notON;
+	        #Alarm_List[34] := "IM".M_214_Gasket_receiver.notOFF;
+	        #Alarm_List[35] := "IM".M_312_First_slide.notON;
+	        #Alarm_List[36] := "IM".M_312_First_slide.notOFF;
+	        #Alarm_List[37] := "IM".M_313_AF_slide_conv.notON;
+	        #Alarm_List[38] := "IM".M_313_AF_slide_conv.notOFF;
+	        #Alarm_List[39] := "IM".M_316_Padloader_IN2.notON;
+	        #Alarm_List[40] := "IM".M_316_Padloader_IN2.notOFF;
+	        #Alarm_List[41] := "IM".M_314_Second_slide.notON;
+	        #Alarm_List[42] := "IM".M_314_Second_slide.notOFF;
+	        #Alarm_List[43] := "IM".M_315_Third_slide.notON;
+	        #Alarm_List[44] := "IM".M_315_Third_slide.notOFF;
+	        #Alarm_List[45] := "IM".M_234_Carousel_loader.notON;
+	        #Alarm_List[46] := "IM".M_234_Carousel_loader.notOFF;
+	        #Alarm_List[47] := "IM".M_330_Scrap_Conv.notON;
+	        #Alarm_List[48] := "IM".M_330_Scrap_Conv.notOFF;
+	        #Alarm_List[49] := "IM".M_331_Scrap_conveyor.notON;
+	        #Alarm_List[50] := "IM".M_331_Scrap_conveyor.notOFF;
+	        #Alarm_List[51] := "IM".M_332_Dump_lug_conv.notON;
+	        #Alarm_List[52] := "IM".M_332_Dump_lug_conv.notOFF;
+	        #Alarm_List[53] := "IM".M_333_Defective_roller.notON;
+	        #Alarm_List[54] := "IM".M_333_Defective_roller.notOFF;
+	        #Alarm_List[55] := "IM".M_334_Layer_set_conv.notON;
+	        #Alarm_List[56] := "IM".M_334_Layer_set_conv.notOFF;
+	        #Alarm_List[57] := "IM".M_335_Lay_fork_scrap.notON;
+	        #Alarm_List[58] := "IM".M_335_Lay_fork_scrap.notOFF;
+	        #Alarm_List[59] := "IM".M_335_Lay_fork_scrap.notCMD;
+	        #Alarm_List[60] := "IM".M_335_Lay_fork_scrap.notFeedBack;
+	        #Alarm_List[61] := "IM".M_335_Lay_fork_scrap.wrong_state;
+	        #Alarm_List[62] := "IM".M_336_PFM_elevator.notOn;
+	        #Alarm_List[63] := "IM".M_336_PFM_elevator.notCMD;
+	        #Alarm_List[64] := "IM".M_336_PFM_elevator.notOff;
+	        #Alarm_List[65] := "IM".M_336_PFM_elevator.wrong_state;
+	        #Alarm_List[66] := "IM".M_336_PFM_elevator.wrong_CMD;
+	        #Alarm_List[67] := "IM_Rout".M_321_Rollgang_Lift_PFM.notON;
+	        #Alarm_List[68] := "IM_Rout".M_321_Rollgang_Lift_PFM.notOFF;
+	        #Alarm_List[69] := "IM_Rout".M_322_Conveyor_2.notON;
+	        #Alarm_List[70] := "IM_Rout".M_322_Conveyor_2.notOFF;
+	        #Alarm_List[71] := "IM_Rout".M_324_Rout_Conveyor.notON;
+	        #Alarm_List[72] := "IM_Rout".M_324_Rout_Conveyor.notOFF;
+	        #Alarm_List[73] := "IM_PFM".M_233_Fork_PFM.notON;
+	        #Alarm_List[74] := "IM_PFM".M_233_Fork_PFM.notOFF;
+	        #Alarm_List[75] := "IM_PFM".M_233_Fork_PFM.notCMD;
+	        #Alarm_List[76] := "IM_PFM".M_233_Fork_PFM.notFeedBack;
+	        #Alarm_List[77] := "IM_PFM".M_232_Elevator_PFM.notOn;
+	        #Alarm_List[78] := "IM_PFM".M_232_Elevator_PFM.notCMD;
+	        #Alarm_List[79] := "IM_PFM".M_232_Elevator_PFM.notOff;
+	        #Alarm_List[80] := "IM_PFM".M_232_Elevator_PFM.wrong_state;
+	        #Alarm_List[81] := "IM_PFM".M_232_Elevator_PFM.wrong_CMD;
+	        #Alarm_List[82] := "IM_PFM".M_317_Gasket_Carousel.notON;
+	        #Alarm_List[83] := "IM_PFM".M_317_Gasket_Carousel.notOFF;
+	        #Alarm_List[84] := "HS".Gasket_Ramp.notUp;
+	        #Alarm_List[85] := "HS".Gasket_Ramp.notMid;
+	        #Alarm_List[86] := "HS".Gasket_Ramp.notDn;
+	        #Alarm_List[87] := "HS".Gasket_Ramp.wrong_state;
+	        #Alarm_List[88] := "HS".Gasket_Ramp.wrong_CMD;
+	        #Alarm_List[89] := "HS".Gasket_Lodems.notON;
+	        #Alarm_List[90] := "HS".Gasket_Lodems.notOFF;
+	        #Alarm_List[91] := "HS".Gasket_Lodems.notCMD;
+	        #Alarm_List[92] := "HS".Gasket_Lodems.notFeedBack;
+	        #Alarm_List[93] := "HS".Gasket_Lodems.wrong_state;
+	        #Alarm_List[94] := "HS".Forks_Pitcher.notON;
+	        #Alarm_List[95] := "HS".Forks_Pitcher.notOFF;
+	        #Alarm_List[96] := "HS".Forks_Pitcher.notCMD;
+	        #Alarm_List[97] := "HS".Forks_Pitcher.notFeedBack;
+	        #Alarm_List[98] := "HS".Forks_Pitcher.wrong_state;
+	        #Alarm_List[99] := "HS".Upor_Defective.notON;
+	        #Alarm_List[100] := "HS".Upor_Defective.notOFF;
+	        #Alarm_List[101] := "HS".Upor_Defective.notCMD;
+	        #Alarm_List[102] := "HS".Upor_Defective.notFeedBack;
+	        #Alarm_List[103] := "HS".Upor_Defective.wrong_state;
+	        #Alarm_List[104] := "HS".M_221_Large_HydroStationDrive.notOn;
+	        #Alarm_List[105] := "HS".M_221_Large_HydroStationDrive.notOff;
+	        #Alarm_List[106] := "HS".M_221_Large_HydroStationDrive.wrongValveState;
+	        #Alarm_List[107] := "HS".M_337_Small_HydroStationDrive.notOn;
+	        #Alarm_List[108] := "HS".M_337_Small_HydroStationDrive.notOff;
+	        #Alarm_List[109] := "HS".M_337_Small_HydroStationDrive.wrongValveState;
+	        
+	        
+	        // Logic faults
+	        // 
+	        #Alarm_List[110] := "QueueController_DB".AlarmWrongLength;
+	        #Alarm_List[111] := "FB_Gasket_Carousel_DB".s_paused; // "FB_SetGaskets_DB".Paused;
+	        #Alarm_List[112] := "FB_Gasket_Carousel_DB".ALM_NoGasketToUP;  // "FB_SetGaskets_DB".ALM_NoGasketToUP;
+	        #Alarm_List[113] := "EvaluationZoneThrowOFF_DB".AlarmBoardNotExitFromZone;
+	        #Alarm_List[114] := "Сортировка_DB".AlarmLowerElevator;
+	        #Alarm_List[115] := "UporPFM_DB".AlarmGidra; // уберите доску после упоров ПФМ
+	        #Alarm_List[116] := "UporPFM_DB".AlarmWarpingBoard; // уберите доску после упоров ПФМ
+	        
+	        // Sxema Faults
+	        // 
+	        
+	        #Alarm_List[117] := "QueueController_DB".AlarmNotValidHole AND NOT "QueueController_DB".Hint_3;  // Ожидался пробел между слоями, уберите доску под линейкой, следующая доска должна быть на низкой цепи
+	        #Alarm_List[118] := "QueueController_DB".AlarmNotValidHole AND "QueueController_DB".Hint_3;
+	        
+	        #Alarm_List[119] := "QueueController_DB".AlarmNotAwaitableBoard AND "QueueController_DB".Hint_3 AND NOT "QueueController_DB".Hint_2; // не та доска под линейкой, переложите на след бобышку, следующая цепь высокая (Далее ожидается доска на высокой цепи)
+	        #Alarm_List[120] := "QueueController_DB".AlarmNotAwaitableBoard AND "QueueController_DB".Hint_3  AND "QueueController_DB".Hint_2; // под линейкой ожидалась доска на высокой цепи, уберите доску
+	        #Alarm_List[121] := "QueueController_DB".AlarmNotAwaitableBoard AND NOT "QueueController_DB".Hint_3  AND "QueueController_DB".Hint_2; // под линейкой ожидалась доска на низкой цепи, уберите доску
+	        
+	        #Alarm_List[122] := "QueueController_DB".AlarmNotAwaitableBoard AND NOT "QueueController_DB".Hint_3 AND NOT "QueueController_DB".Hint_2; // не та доска под линейкой, переложите на след бобышку, следующая цепь низкая Далее ожидается доска на низкой цепи)
+	        
+	        // SensLineAlarm
+	        // 
+	        #Alarm_List[123] := "SensorLine_Clogging_DB".AlarmSensor_dirty[0]; //загрязнен датчик 1,8 м
+	        #Alarm_List[124] := "SensorLine_Clogging_DB".AlarmSensor_dirty[1];
+	        #Alarm_List[125] := "SensorLine_Clogging_DB".AlarmSensor_dirty[2];
+	        #Alarm_List[126] := "SensorLine_Clogging_DB".AlarmSensor_dirty[3];
+	        #Alarm_List[127] := "SensorLine_Clogging_DB".AlarmSensor_dirty[4];
+	        #Alarm_List[128] := "SensorLine_Clogging_DB".AlarmSensor_dirty[5];
+	        #Alarm_List[129] := "SensorLine_Clogging_DB".AlarmSensor_dirty[6];
+	        #Alarm_List[130] := "SensorLine_Clogging_DB".AlarmSensor_dirty[7];
+	        #Alarm_List[131] := "SensorLine_Clogging_DB".AlarmSensor_dirty[8];
+	        #Alarm_List[132] := "SensorLine_Clogging_DB".AlarmSensor_dirty[9];
+	        #Alarm_List[133] := "SensorLine_Clogging_DB".AlarmSensor_dirty[10];
+	        #Alarm_List[134] := "SensorLine_Clogging_DB".AlarmSensor_dirty[11];
+	        #Alarm_List[135] := "SensorLine_Clogging_DB".AlarmSensor_dirty[12];
+	        #Alarm_List[136] := "SensorLine_Clogging_DB".AlarmSensor_dirty[13];
+	        #Alarm_List[137] := "SensorLine_Clogging_DB".AlarmSensor_dirty[14]; // загрязнен датчик 6.0 м
+	        
+	        //Sensor alarms
+	        //
+	        
+	        
+	        //MOOOre alarms
+	        // 
+	        #Alarm_List[138] := "IM_PFM".M_233_Fork_PFM.unkn_state; // вилы ПФМ в некорректном положении
+	        #Alarm_List[139] := "EvaluationZoneThrowOFF_DB".FaultGhostBoard; // ошибка очереди на зоне оценки
+	        #Alarm_List[140] := NOT "QueueController_DB".Calibrated; // линейка не откалибрована
+	        #Alarm_List[141] := "Сортировка_DB".AlarmNotReadedPack; // ошибка чтения пакета ПФМ
+	        #Alarm_List[142] := "ПФМ Брака_DB_1".AlarmNotReadedPack; // ошибка чтения пакета ПФМ брака
+	        #Alarm_List[143] := "ПФМ Брака_DB_1".AlarmExtraBoardInLay; //ошибка лишняя доска на слой пфм брака
+	        #Alarm_List[144] := "FB_Gasket_Carousel_DB".ALM_SensLastHook;  // "FB_SetGaskets_DB".ALM_LargeOffset; // ошибка переезда карусели
+	        #Alarm_List[145] := "FB_Gasket_Carousel_DB".ALM_SensHook; // "FB_SetGaskets_DB".ALM_SensHook; // сбой датчика крюков на карусели
+	        #Alarm_List[146] := "QueueController_DB".AlarmCount; // ошибка счета ПФМ
+	        #Alarm_List[147] := "ПФМ Брака_DB_1".AlarmNoPacketPushed; //авария не забрали пакет с пфм брака
+	        #Alarm_List[148] := "ПФМ Брака_DB_1".AwaitGasket; // ожидаем прокладку на пфм брака
+	        
+	        
+	    END_REGION
+	    
+	
+END_FUNCTION_BLOCK
+

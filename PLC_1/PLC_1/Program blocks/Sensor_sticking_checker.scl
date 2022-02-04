@@ -1,0 +1,28 @@
+﻿FUNCTION_BLOCK "Sensor_sticking_checker"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      SensorSig : Bool;
+      StickCondition : Bool;
+      Reset : Bool;
+      Stick_time : Time;
+   END_VAR
+
+   VAR_OUTPUT 
+      AlarmStickingSensor : Bool;
+   END_VAR
+
+   VAR 
+      Stick_timer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+   END_VAR
+
+
+BEGIN
+	#Stick_timer(IN:=#SensorSig AND #StickCondition,
+	             PT:=#Stick_time);
+	
+	#AlarmStickingSensor := (#AlarmStickingSensor OR #Stick_timer.Q) AND NOT #Reset;
+	
+END_FUNCTION_BLOCK
+

@@ -1,0 +1,123 @@
+﻿FUNCTION_BLOCK "FB_IM2x2S"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+//------------------------------------------------------------------------------------
+//  Declaration of Variables
+//------------------------------------------------------------------------------------
+   VAR_INPUT 
+      onSig : Bool;   //      Сигнал верхнего концевика
+      offSig : Bool;   //      Сигнал нижнего концевика
+      sigFeedback : Bool;   //      Обратная связь о том что устройство передвигается
+      hasFeedback : Bool;   //      Флаг о наличии обратной связи по движению
+      comUp : Bool;   //      Команда на подъем оборудования в автомате
+      comDown : Bool;   //      Команда на спуск оборудования в автомате
+      btnUp : Bool;   //      Кнопка на подъем лифта
+      btnDown : Bool;   //      Кнопка на спуск лифта
+      btnStop : Bool;   //      Кнопка Останов
+      Ready : Bool;   //      Условие готовности
+      Reset : Bool;   //      Сброс
+      prmDU : Bool;   //      Разрешение на перевод в ДУ
+      btnAU : Bool;   //      Команда на перевод в АУ
+      btnDU : Bool;   //      Команда на пеервод в ДУ
+      btnMU : Bool;
+      btnMU_ON : Bool;   //      Включить в местном управлении
+      btnMU_OF : Bool;   //      Отключить в местном управлении
+      set_time_notOn : Time;   //      установка времени на неВКЛючение
+      set_time_notOff : Time;   //      установка времени на неВЫКЛючение
+      set_time_notCMD : Time;   //      установка времени отсутсивие команды
+      setSpeedAU : Real;   //      Скорость в режиме автомат
+      setSpeedDU : Real;   //      Скорость в режиме ДУoutputs
+   END_VAR
+
+   VAR_OUTPUT 
+      AU : Bool;   //      Режим - Автомат
+      DU : Bool;   //      Режим - ДистанционноеAlarm : Bool; // Авария
+      MU : Bool;
+      Fault : Bool;   //      Неисправность
+      outFWD : Bool;   //      Сигнал о движении вверх (вперед)
+      outBKD : Bool;   //      Сигнал о движении вниз (назад)
+      notOn : Bool;   //      Сигнал на неВКЛючение
+      notCMD : Bool;   //      Отсутствие команды
+      notOff : Bool;   //      Сигнал на неВЫКЛючение
+      wrong_state : Bool;   //      Некорректное состояние
+      wrong_CMD : Bool;   // неверная команда
+      setSpeed : Real;   //      скорость в автомате для частотникаvariables
+   END_VAR
+
+   VAR 
+      timer_notOn {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+      timer_notOff {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+      timer_notCMD {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+   END_VAR
+
+
+BEGIN
+	//Формирование автоматического управления
+	IF #btnAU THEN
+	    #AU := true;
+	    #DU := false;
+	    #MU := false;
+	END_IF;
+	//Формирование дистанционного управления 
+	IF #btnDU THEN
+	    #DU := true;
+	    #AU := false;
+	    #MU := false;
+	END_IF;
+	//Формирование местного управления
+	IF #btnMU THEN
+	    #MU := true;
+	    #AU := false;
+	    #DU := false;
+	END_IF;
+	
+	IF NOT #AU AND NOT #DU AND NOT #MU THEN
+	    #MU := true;
+	END_IF;
+	
+	#outFWD := #Ready
+	AND ((#outFWD
+	OR #DU AND #btnUp
+	OR #MU AND #btnMU_ON
+	OR #AU AND #comUp)
+	AND NOT (#Fault OR #onSig OR (#DU AND #btnStop) OR (#AU AND NOT #comUp) OR (#MU AND NOT #btnMU_ON))
+	);
+	
+	#outBKD := #Ready
+	AND ((#outBKD
+	OR #DU AND #btnDown
+	OR #MU AND #btnMU_OF
+	OR #AU AND #comDown)
+	AND NOT (#Fault OR #offSig OR (#DU AND #btnStop) OR (#AU AND NOT #comDown) OR (#MU AND NOT #btnMU_OF))
+	);
+	
+	#timer_notOn(IN := (NOT #outBKD AND #outFWD) AND NOT (#sigFeedback AND #hasFeedback) AND NOT #Reset,
+	             PT := #set_time_notOn);
+	#notOn := (#notOn OR #timer_notOn.Q) AND NOT #Reset;
+	
+	// Не едет наверх
+	// Проверка на отсутствие команд
+	#timer_notCMD(IN := NOT (#outBKD OR #outFWD) AND (#sigFeedback AND #hasFeedback) AND NOT #Reset,
+	              PT := #set_time_notCMD);
+	#notCMD := (#notCMD OR #timer_notCMD.Q) AND NOT #Reset;
+	
+	// Не едет вниз
+	#timer_notOff(IN := (#outBKD AND NOT #outFWD) AND NOT (#sigFeedback AND #hasFeedback) AND NOT #Reset,
+	              PT := #set_time_notOff);
+	#notOff := (#notOff OR #timer_notOff.Q) AND NOT #Reset;
+	
+	#wrong_CMD := (#wrong_CMD OR (#outFWD AND #outBKD)) AND NOT #Reset;
+	
+	#wrong_state := #onSig AND #offSig;
+	
+	#Fault := #notOn OR #notOff OR #notCMD OR #wrong_state OR #wrong_CMD;
+	
+	IF #DU THEN
+	    #setSpeed := #setSpeedDU;
+	ELSE
+	    #setSpeed := #setSpeedAU;
+	END_IF;
+	
+	
+END_FUNCTION_BLOCK
+

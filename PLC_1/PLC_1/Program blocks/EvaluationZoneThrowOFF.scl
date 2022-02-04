@@ -1,0 +1,115 @@
+﻿FUNCTION_BLOCK "EvaluationZoneThrowOFF"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      StartEvaluationArea : Bool;   // сигнал с датчика о наличии доски в начале зоны оценки
+      EndEvaluationArea : Bool;   // сигнал с датчика конец зоны оценки
+      DefectSignal : Bool;   // сигнал с кнопки брака
+      MU_mode : Bool;   // местное управление сбросом в брак
+      DropArea : Bool;   // сигнал с датчика перед сбросом
+      Reset : Bool;   // сброс счетчиков
+   END_VAR
+
+   VAR_OUTPUT 
+      DefectDrop_CMD_UP : Bool;   // команда на поднятие сбрасывателя
+      DefectDrop_CMD_DOWN : Bool;   // команда на опускание сбрасывателя
+      CommonAlarmEvaluationZone : Bool;   // авария на зоне оценки
+      AlarmBoardNotExitFromZone : Bool;   // авария доска не покинула зону оценки
+      FaultQueueOverflow : Bool;   // ошибка переполнения очереди
+      FaultGhostBoard : Bool;   // ошибка "призрачная доска" (если почему-то указатель хвоста на нуле, при этом доска уехала с зоны оценки)
+   END_VAR
+
+   VAR 
+      StartEvaluationArea_old : Bool;
+      EndEvaluationArea_old : Bool;
+      DropArea_old : Bool;
+      CanEvaluate : Bool;   // доска почти наверное упала
+      CMD_up_old : Bool;
+      BoardIterator : Int;   // счетчик досок на зоне оценки (от первого датчика до сброса)
+      SolutionQueue : Array[0..7] of Bool;   // очередь принятых решеий (брак - не брак)
+      QueueCoded { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} AT SolutionQueue : Byte;
+   END_VAR
+
+
+BEGIN
+	IF (#Reset AND (#CommonAlarmEvaluationZone)) THEN
+	    IF (#FaultQueueOverflow OR #AlarmBoardNotExitFromZone) THEN
+	        #BoardIterator := 0;
+	        #FaultQueueOverflow := False;
+	        #AlarmBoardNotExitFromZone := FALSE;
+	        #CanEvaluate := FALSE;
+	    END_IF;
+	    #AlarmBoardNotExitFromZone := FALSE;
+	
+	    #FaultGhostBoard := FALSE;
+	END_IF;
+	
+	#FaultQueueOverflow := #BoardIterator > 7;
+	
+	#CommonAlarmEvaluationZone := #AlarmBoardNotExitFromZone OR #FaultQueueOverflow OR #FaultGhostBoard;
+	
+	REGION Принятие решения на поштучке
+	    
+	    IF (#StartEvaluationArea AND NOT #StartEvaluationArea_old AND NOT #AlarmBoardNotExitFromZone) THEN
+	        // передний фронт датчика начала зоны оценки 
+	        #AlarmBoardNotExitFromZone := #CanEvaluate;
+	        
+	        #CanEvaluate := true;
+	        
+	        // пока запишем отрицательное решение оператора
+	        // 
+	        IF (NOT #FaultQueueOverflow) THEN
+	            #SolutionQueue[#BoardIterator] := FALSE;
+	        END_IF;
+	    END_IF;
+	    
+	    IF (#DefectSignal AND #CanEvaluate AND NOT (#MU_mode OR #CommonAlarmEvaluationZone)) THEN
+	        //Доска ушла с зоны оценки, можно фиксировать хвост (путем + 1) + снимаем флаг того, что доска оценивается
+	        //
+	        #SolutionQueue[#BoardIterator] := TRUE;
+	    END_IF;
+	    
+	    IF ((NOT #EndEvaluationArea AND #EndEvaluationArea_old) AND #CanEvaluate AND NOT #AlarmBoardNotExitFromZone) THEN
+	        // задний фронт конца зоны оценки либо нажата кнопка брак завершает задание для доски
+	        // 
+	        #BoardIterator := #BoardIterator + 1;
+	        #CanEvaluate := FALSE;
+	    END_IF;
+	END_REGION
+	
+	REGION Движение сбрасывателя
+	    
+	    IF (#DropArea AND NOT #DropArea_old) THEN
+	        // передний фронт датчика сброоса провоцирует pop первого элемента очереди
+	        // 
+	        #FaultGhostBoard := #BoardIterator = 0;
+	        IF (NOT #FaultGhostBoard) THEN
+	            
+	            #DefectDrop_CMD_UP := #SolutionQueue[0];
+	            #DefectDrop_CMD_DOWN := NOT #DefectDrop_CMD_UP;
+	            
+	            // двигаю очередь направо потому что биты перевернуты
+	            #QueueCoded := SHR_BYTE(IN := #QueueCoded, N := 1); 
+	            
+	            //меняю указатель на хвост очереди
+	            #BoardIterator := #BoardIterator - 1;
+	        END_IF;
+	        
+	    END_IF;
+	    
+	END_REGION
+	
+	
+	IF ((#CommonAlarmEvaluationZone OR #MU_mode) AND #DefectSignal) THEN
+	    #DefectDrop_CMD_UP := NOT #DefectDrop_CMD_UP;
+	    #DefectDrop_CMD_DOWN := NOT #DefectDrop_CMD_UP;
+	END_IF;
+	
+	
+	
+	#CMD_up_old := #DefectDrop_CMD_UP;
+	#StartEvaluationArea_old := #StartEvaluationArea;
+	#EndEvaluationArea_old := #EndEvaluationArea;
+	#DropArea_old := #DropArea;
+END_FUNCTION_BLOCK
+

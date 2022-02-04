@@ -1,0 +1,37 @@
+﻿FUNCTION "SolveMovBoardPos" : Int
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      PlankLength : Int;
+      Max_pos : Int;
+      Min_pos : Int;
+      Offset_chess : Int;
+      PulseCount : Int;
+   END_VAR
+
+   VAR_TEMP 
+      PlankLength_tmp : Int;
+      Sub : Int;
+      k : Real;
+      b : Real;
+   END_VAR
+
+
+BEGIN
+	IF (#PlankLength > #Max_pos) THEN
+	    #PlankLength_tmp := #Max_pos;
+	ELSIF (#PlankLength < #Min_pos) THEN
+	    #PlankLength_tmp := #Min_pos;
+	ELSE
+	    #PlankLength_tmp := #PlankLength;
+	END_IF;
+	
+	#Sub := (#Min_pos - #Max_pos);
+	
+	#k := INT_TO_REAL(#PulseCount) / #Sub;
+	
+	#b := - #Max_pos * #k;
+	
+	#SolveMovBoardPos := TRUNC_INT((#PlankLength_tmp + #Offset_chess)*#k + #b);
+END_FUNCTION
+

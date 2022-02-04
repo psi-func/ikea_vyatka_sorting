@@ -1,0 +1,47 @@
+﻿FUNCTION_BLOCK "DI"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      in : Bool;
+      stableON : Time;
+      stableOFF : Time;
+   END_VAR
+
+   VAR_OUTPUT 
+      out : Bool;
+      fe : Bool;
+      de : Bool;
+   END_VAR
+
+   VAR 
+      old_out : Bool;
+      onTimer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+      offTimer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+   END_VAR
+
+
+BEGIN
+	#onTimer(
+	         IN := (#in AND NOT #out),
+	         PT := #stableON
+	);
+	
+	#offTimer(
+	          IN := (NOT #in AND #out),
+	          PT := #stableOFF
+	);
+	
+	IF (#onTimer.Q) THEN
+	    #old_out := FALSE;
+	    #out := TRUE;
+	    #de := True;
+	END_IF;
+	
+	IF (#offTimer.Q) THEN
+	    #old_out := TRUE;
+	    #out := FALSE;
+	    #fe := True;
+	END_IF;
+	
+END_FUNCTION_BLOCK
+

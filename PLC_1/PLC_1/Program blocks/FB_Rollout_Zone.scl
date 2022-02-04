@@ -1,0 +1,212 @@
+﻿FUNCTION_BLOCK "FB_Rollout_Zone"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      lift_returning : Bool;
+      packet_ready : Bool;
+      m_322_sensor : Bool;
+      m_324_sensor : Bool;
+      m_324_sync : Bool;
+      lift_down_sensor : Bool;
+      lift_up_sensor : Bool;
+   END_VAR
+
+   VAR_OUTPUT 
+      packet_released : Bool;
+   END_VAR
+
+   VAR_IN_OUT 
+      rolling_packet { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} : Bool;
+   END_VAR
+
+   VAR 
+      busyM321 : Bool;
+      busyM322 : Bool;
+      busyM322_old : Bool;
+      busyM324 : Bool;
+      m_324_ready : Bool;
+      m_324_move_trig : Bool;
+      m_324_sens_old : Bool;
+      m_324_sync_old : Bool;
+      safe_rollout_timer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+      delay_start_m_324 {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+      busy321_timer {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+      busy322_timer {InstructionName := 'TOF'; LibVersion := '1.0'} : TOF;
+      busy324_timer {InstructionName := 'TOF'; LibVersion := '1.0'} : TOF;
+   END_VAR
+
+   VAR_TEMP 
+      packet_is_picked : Bool;
+      rollout_ready : Bool;
+   END_VAR
+
+   VAR CONSTANT 
+      ROLL_TIMEOUT : Time := T#4s;
+      DELAY_START_324 : Time := T#3500ms;
+   END_VAR
+
+
+BEGIN
+	REGION Ready and alarms ROLLOUT ZONE
+	    "ALG".Ready_Rout := "NaprUpr" AND "K1-112 2L1" AND "K1-113/3 5L1";
+	    
+	    "ALG".Alarm_Rout :=
+	    // Рольганг на лифте
+	    "IM_Rout".M_321_Rollgang_Lift_PFM.Fault OR
+	    "IM_Rout".M_321_Rollgang_Lift_PFM.Alarm OR
+	    // Второй конвейер
+	    "IM_Rout".M_322_Conveyor_2.Fault OR
+	    "IM_Rout".M_322_Conveyor_2.Alarm OR
+	    // Последний конвейер
+	    "IM_Rout".M_324_Rout_Conveyor.Fault OR
+	    "IM_Rout".M_324_Rout_Conveyor.Alarm OR
+	    // Нет сигнала готовности
+	    NOT "ALG".Ready_Rout;
+	    
+	    
+	END_REGION
+	
+	REGION SIGNALS
+	    #busy321_timer(IN := #lift_down_sensor,
+	                   PT := T#2s,
+	                   Q => #busyM321);
+	    
+	    #busy322_timer(IN := #m_322_sensor,
+	                   PT := T#2s,
+	                   Q => #busyM322);
+	    
+	    
+	    #busy324_timer(IN := #m_324_sensor,
+	                   PT := T#15s,
+	                   Q => #busyM324);
+	    
+	    #packet_is_picked := #busyM322 AND NOT #busyM322_old;
+	    
+	    #busyM322_old := #busyM322;
+	    
+	END_REGION
+	
+	REGION Connection with MAIN SORTER
+	    
+	    #safe_rollout_timer(IN := #rolling_packet,
+	                        PT := #ROLL_TIMEOUT);
+	    
+	    
+	    IF (#rolling_packet AND #safe_rollout_timer.Q AND #packet_is_picked) THEN
+	        #rolling_packet := FALSE;
+	        
+	        #packet_released := TRUE;
+	    END_IF;
+	    
+	    IF (#packet_released AND ((#lift_returning AND NOT #lift_down_sensor) OR #lift_up_sensor)) THEN
+	        #packet_released := FALSE;
+	        
+	    END_IF;
+	    
+	    // NEW feature
+	    IF (#packet_ready AND NOT #lift_down_sensor) THEN
+	        #rolling_packet := FALSE;
+	    END_IF;
+	   
+	   
+	END_REGION
+	
+	
+	REGION helper values
+	    
+	    // нормальные условия для работы
+	    #rollout_ready := NOT "ALG".Alarm_Rout AND "ALG".Auto_Sorting;
+	    
+	    // верное положение транспортера
+	    #m_324_ready := (#m_324_ready OR
+	    (
+	    (#m_324_sync AND NOT #m_324_sync_old)
+	    )
+	    ) AND NOT (
+	    (NOT #m_324_sensor AND #m_324_sens_old)
+	    );
+	    
+	    #m_324_sync_old := #m_324_sync;
+	    #m_324_sens_old := #m_324_sensor;
+	    
+	    
+	END_REGION
+	
+	
+	REGION Automode M321
+	    
+	    "IM_Rout".M_321_Rollgang_Lift_PFM.OnCom :=
+	    
+	    #rollout_ready AND
+	        #rolling_packet AND
+	        #busyM321 AND
+	        NOT #busyM322;
+	    
+	END_REGION
+	
+	
+	
+	REGION Automode 322
+	    
+	    "IM_Rout".M_322_Conveyor_2.OnCom :=
+	    
+	    #rollout_ready AND
+	    (
+	    (
+	    #busyM322 AND // есть пакет на 322
+	    #m_324_ready AND // 324 в верном положении
+	    NOT #busyM324 // свободен 324
+	    )
+	    OR
+	    (
+	    NOT #busyM322 AND // свободен 322
+	    #busyM321 AND // есть пакет на 321
+	    #rolling_packet // лифт заблокирован и дает разрешение на выкатку
+	    )
+	    );
+	    
+	END_REGION
+	
+	
+	REGION Automode 324
+	    
+	    // захват движения M324
+	    // 
+	    #m_324_move_trig := (#m_324_move_trig OR
+	    (
+	    #busyM322 AND
+	    #m_324_ready AND
+	    NOT #busyM324
+	    )
+	    ) AND NOT (
+	    #busyM324
+	    );
+	    
+	    
+	    // задержка на старт по условию
+	    #delay_start_m_324(IN := #m_324_move_trig,
+	                       PT := #DELAY_START_324);
+	    
+	    
+	    "IM_Rout".M_324_Rout_Conveyor.OnCom :=
+	    
+	    #rollout_ready AND
+	    NOT #busyM324 AND
+	    (
+	    NOT #m_324_ready OR #delay_start_m_324.Q
+	    );
+	    
+	    
+	    
+	    // ПЧ 324
+	    // DEPRECATED
+	    IF ("IM_Rout".M_324_Rout_Conveyor.onOutBWD OR "IM_Rout".M_324_Rout_Conveyor.onOutFWD) THEN
+	        "IM_Rout".M_324_Rout_Conveyor.setSpeedAU := 8.0;
+	    ELSE
+	        "IM_Rout".M_324_Rout_Conveyor.setSpeedAU := 0.0;
+	    END_IF;
+	    
+	END_REGION
+	
+END_FUNCTION_BLOCK
+

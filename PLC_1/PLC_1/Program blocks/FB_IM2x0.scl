@@ -1,0 +1,97 @@
+﻿FUNCTION_BLOCK "FB_IM2x0"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      OnCom : Bool;   // команда вперед/вверх в авто
+      OffCom : Bool;   // команда назад/вниз авто
+      Ready : Bool;   // готовность
+      Reset : Bool;   // сброс ошибки
+      btnAU : Bool;   // авто режим 
+      btnDU : Bool;   // режим ДУ
+      btnMU : Bool;   // местное управление
+      btnDU_On : Bool;   // вперед/вверх ДУ
+      btnDU_Off : Bool;   // назад/вниз ДУ
+      btnMU_On : Bool;   // вперед/вверх МУ
+      btnMU_Off : Bool;   // назад/вниз МУ
+      set_T_On : Time;   // время на сработку механизма вверх
+      set_T_Off : Time;   // время на сработку механизма вниз
+   END_VAR
+
+   VAR_OUTPUT 
+      AU : Bool;
+      DU : Bool;
+      MU : Bool;
+      outFwd : Bool;   // сигнал вперед/вниз
+      outBwd : Bool;   // сигнал назад/вниз
+      inWork : Bool;   // сигнал в работе
+   END_VAR
+
+   VAR 
+      virtualOnSig : Bool;   // виртуальный верхний конфевик
+      virtualOffSig : Bool;   // виртуальный нижний концевик
+      timer_full_On {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+      timer_full_Off {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+   END_VAR
+
+
+BEGIN
+	//Формирование автоматического управления
+	IF #btnAU THEN
+	    #AU := true;
+	    #DU := false;
+	    #MU := false;
+	END_IF;
+	//Формирование дистанционного управления 
+	IF #btnDU THEN
+	    #DU := true;
+	    #AU := false;
+	    #MU := false;
+	END_IF;
+	//Формирование местного управления
+	IF #btnMU THEN
+	    #MU := true;
+	    #AU := false;
+	    #DU := false;
+	END_IF;
+	
+	IF NOT #AU AND NOT #DU AND NOT #MU THEN
+	    #MU := true;
+	END_IF;
+	
+	#outFwd := #Ready AND ((#outFwd 
+	OR #AU AND #OnCom
+	OR #DU AND #btnDU_On
+	OR #MU AND #btnMU_On)
+	AND NOT (
+	#virtualOnSig
+	OR #AU AND #OffCom
+	OR #DU AND #btnDU_Off
+	OR #MU AND #btnMU_Off
+	));
+	
+	#outBwd := #Ready AND (( #outBwd
+	OR #AU AND #OffCom
+	OR #DU AND #btnDU_Off
+	OR #MU AND #btnMU_Off
+	)
+	AND NOT
+	(#virtualOffSig
+	OR #AU AND #OnCom
+	OR #DU AND #btnDU_On
+	OR #MU AND #btnMU_On));
+	
+	#timer_full_On(IN:=#outFwd AND NOT #Reset,
+	               PT:=#set_T_On
+	);
+	
+	#virtualOnSig := (#virtualOnSig OR #timer_full_On.Q) AND NOT #outBwd AND NOT #Reset;
+	
+	#timer_full_Off(IN:=#outBwd AND NOT #Reset,
+	                PT:=#set_T_Off
+	);
+	
+	#virtualOffSig := (#virtualOffSig OR #timer_full_Off.Q) AND NOT #outFwd  AND NOT #Reset;
+	
+	#inWork := #outBwd XOR #outFwd;
+END_FUNCTION_BLOCK
+

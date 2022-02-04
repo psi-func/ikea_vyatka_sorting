@@ -1,0 +1,148 @@
+﻿FUNCTION_BLOCK "LodemsRamp_CNTL"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      NoGasketMode : Bool;   // режим без прокладки
+      OneMoreLay : Bool;   // сигнал о необходимости еще одного слоя прокладок
+      GasketLayerReady : Bool;   // можно забирать свежий слой прокладок
+      MidUpPermission : Bool;   // разрешение на подъем
+      SafetyForcing : Bool;   // безопасный набор
+      CanGoDown : Bool;   // можно ехать вниз после отъезда крюков назад
+      CanPutGaskets : Bool;
+      VillStartPos : Bool;   // вилы задвинуты
+      LodemsOpened : Bool;   // стаканы открыты
+      PacketPicked : Bool;   // пакет выкатили, можно опускаться
+      PushingPacket : Bool;   // форсирование пакета
+      ToEmptyGasket : Bool;
+      TopStateSensor : Bool;   // датчик верхнего положения
+      MidStateSensor : Bool;   // датчик среднего положения
+      LowStateSensor : Bool;   // датчик нижнего положения
+      QPlanksLayers : Int;   // количество слоев
+   END_VAR
+
+   VAR_OUTPUT 
+      CMD_On : Bool;   // команда вверх
+      CMD_Mid : Bool;   // команда вниз
+      CMD_Off : Bool;
+      CMD_OpenLodems : Bool;
+      CMD_CloseLodems : Bool;
+      Carousel_GetRidOf : Bool;
+      ResetCarouselAlgo : Bool;   // сброс алгоритма карусели
+      LastLay : Bool;   // последний слой прокладок
+      LayerHolded : Int;   // номер удерживаемого слоя
+   END_VAR
+
+   VAR 
+      BusyGaskets : Bool;   // сейчас занят
+      goDown_trig : Bool;   // триггер на движение вниз
+      goUp_trig : Bool;   // триггер на движение вверх
+      pushing_trig : Bool;
+      nogasket_old : Bool;
+   END_VAR
+
+
+BEGIN
+	#ResetCarouselAlgo := FALSE;
+	
+	#pushing_trig := #pushing_trig OR #PushingPacket;
+	
+	//обратная связь карусели
+	#Carousel_GetRidOf := (#Carousel_GetRidOf OR (#BusyGaskets AND #MidStateSensor)) AND NOT #GasketLayerReady;
+	
+	//логика открытия/закрытия стаканов
+	//
+	#CMD_OpenLodems := (#CMD_OpenLodems OR (#CMD_Off AND #LowStateSensor)) AND NOT #MidStateSensor;
+	#CMD_CloseLodems := NOT #CMD_OpenLodems;
+	
+	//режим без прокладки выключили
+	//
+	IF (NOT #NoGasketMode AND #nogasket_old) THEN
+	    #CMD_On := FALSE;
+	    #CMD_Mid := TRUE;
+	    #CMD_Off := FALSE;
+	END_IF;
+	
+	//если вдруг неправильно сработал счет и нужен еще слой прокладок, просто нажимаем кнопку еще один слой
+	//снимем флаг последний слой и спустимся в среднее положение
+	//
+	IF (#LastLay AND NOT #BusyGaskets AND #OneMoreLay) THEN
+	    #LastLay := FALSE;
+	    // едем вниз на среднее положение
+	    #CMD_On := FALSE;
+	    #CMD_Mid := TRUE;
+	    #CMD_Off := FALSE;
+	END_IF;
+	
+	IF (NOT #BusyGaskets AND ((#GasketLayerReady AND #MidUpPermission) OR (#pushing_trig AND #SafetyForcing) OR #LastLay OR #NoGasketMode)) THEN
+	    // поднимаем прокладочник
+	    // 
+	    #goUp_trig := TRUE;
+	    
+	    #CMD_On := TRUE;
+	    #CMD_Mid := FALSE;
+	    #CMD_Off := FALSE;
+	    
+	END_IF;
+	
+	IF (#TopStateSensor AND #CanGoDown AND #goUp_trig AND NOT #pushing_trig) THEN
+	    // Карусель говорит что можно опускаться при этом не форсируем
+	    // едем вниз на среднее положение
+	    #CMD_On := FALSE;
+	    #CMD_Mid := TRUE;
+	    #CMD_Off := FALSE;
+	    
+	    #goUp_trig := FALSE;
+	    
+	    #BusyGaskets := TRUE;
+	    
+	    #LayerHolded := #LayerHolded + 1;
+	    
+	    #LastLay := #LayerHolded >= #QPlanksLayers - 1;
+	END_IF;
+	
+	#goDown_trig := (#goDown_trig OR #CanPutGaskets) AND NOT (#pushing_trig);
+	
+	IF (#BusyGaskets AND #goDown_trig AND #VillStartPos) THEN
+	    // опускаем прокладочник если есть что опускать вилы сзади и есть на то команда
+	    // 
+	    #CMD_On := FALSE;
+	    #CMD_Mid := FALSE;
+	    #CMD_Off := TRUE;
+	    
+	    IF (#LodemsOpened AND #LowStateSensor) THEN
+	            //  прокладочник в среднее положение как только сбросили прокладку
+	            // 
+	            #CMD_On := FALSE;
+	            #CMD_Mid := true;
+	            #CMD_Off := FALSE;
+	            
+	            #BusyGaskets := FALSE;
+	            
+	            #goDown_trig := False;
+	        END_IF;
+	END_IF;
+	
+	IF (#ToEmptyGasket) THEN
+	    #BusyGaskets := FALSE;
+	END_IF;
+	
+	
+	IF (#PacketPicked) THEN
+	
+	    #pushing_trig := FALSE;
+	    #LastLay := FALSE;
+	    #goDown_trig := FALSE;
+	    #LayerHolded := 0;
+	    #ResetCarouselAlgo := TRUE;
+	    //  прокладочник в среднее положение
+	    // 
+	    #CMD_On := FALSE;
+	    #CMD_Mid := true;
+	    #CMD_Off := FALSE;
+	    
+	END_IF;
+	
+	#nogasket_old := #NoGasketMode;
+END_FUNCTION_BLOCK
+

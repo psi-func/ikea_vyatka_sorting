@@ -1,0 +1,51 @@
+﻿FUNCTION_BLOCK "ButtonShortLongTap"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      Button_Sig : Bool;
+      set_Trembling_Time : Time;
+      set_startLongTapFixation_Time : Time;
+      set_LongTap_Time : Time;
+   END_VAR
+
+   VAR_OUTPUT 
+      ShortTap : Bool;   // короткий клик
+      LongTap : Bool;   // длинное нажатие
+      WaitingForLongTap : Bool;   // сигнал на лампочку кнопки
+   END_VAR
+
+   VAR 
+      Button_Sig_old : Bool;
+      ButtonTimer_old : Bool;
+      noTremble : Bool;
+      ButtonTimer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+   END_VAR
+
+
+BEGIN
+	#ShortTap := FALSE;
+	#LongTap := False;
+	
+	#ButtonTimer(IN:=#Button_Sig,
+	             PT:=#set_LongTap_Time);
+	
+	IF (#ButtonTimer.Q) THEN
+	    #LongTap := TRUE;
+	    #WaitingForLongTap := FALSE;
+	ELSIF (#ButtonTimer.ET > #set_startLongTapFixation_Time) THEN
+	    #noTremble := FALSE;
+	    #WaitingForLongTap := TRUE;
+	ELSIF (#ButtonTimer.ET > #set_Trembling_Time) THEN
+	    #noTremble := TRUE;
+	END_IF;
+	
+	IF (NOT #Button_Sig) THEN
+	    #WaitingForLongTap := FALSE;
+	    #ShortTap := #noTremble;
+	    #noTremble := FALSE;
+	END_IF;
+	
+	#ButtonTimer_old := #ButtonTimer.Q;
+	#Button_Sig_old := #Button_Sig;
+END_FUNCTION_BLOCK
+

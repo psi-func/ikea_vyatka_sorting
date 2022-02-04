@@ -1,0 +1,32 @@
+﻿ORGANIZATION_BLOCK "CYC_INT3"
+TITLE = "Cyclic Interrupt"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_TEMP 
+      OB33_EV_CLASS : Byte;   // Bits 0-3 = 1 (Coming event), Bits 4-7 = 1 (Event class 1)
+      OB33_STRT_INF : Byte;   // 16#34 (OB 33 has started)
+      OB33_PRIORITY : Byte;   // Priority of OB Execution
+      OB33_OB_NUMBR : Byte;   // 33 (Organization block 33, OB33)
+      OB33_RESERVED_1 : Byte;   // Reserved for system
+      OB33_RESERVED_2 : Byte;   // Reserved for system
+      OB33_PHS_OFFSET : Int;   // Phase offset (integer, milliseconds)
+      OB33_RESERVED_3 : Int;   // Reserved for system
+      OB33_EXC_FREQ : Int;   // Frequency of execution (msec)
+      OB33_DATE_TIME : Date_And_Time;   // Date and time OB33 started
+   END_VAR
+
+
+BEGIN
+	IF ("ALG".Meandr = 32000) THEN
+	    "ALG".Meandr := 0;
+	END_IF;
+	
+	// счет для различных меандров большей частоты
+	// 
+	"ALG".Meandr := "ALG".Meandr + 1;
+	
+	// герцовка для ламп и прочего барахла
+	// 
+	"2Hz" := NOT "2Hz";
+END_ORGANIZATION_BLOCK
+

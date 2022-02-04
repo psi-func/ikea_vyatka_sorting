@@ -1,0 +1,112 @@
+﻿FUNCTION_BLOCK "FB_SensLine"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      CutPlankData : Bool;   // сигнал на анализ данныз и выдаче результатов
+      CollectData : Bool;   // собирать данные под линейкой
+      ActualChain : Bool;   // текущая цепь для измерений
+      EnableSensors : Bool;   // включить датчики на измерение
+      SensData : Word;   // данные с датчиков в формате Word (по порядку)
+      SensDataArray { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} AT SensData : Array[0..15] of Bool;   // в виде массива булов
+      SensDataByte { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} AT SensData : Array[0..1] of Byte;   // массив байтов
+      SensQuantity : Int;   // Количество датчиков
+      MinLength : Int;   // минимальная длина, мм
+      SensOffset : Int;   // расстояние между датчиками, мм
+   END_VAR
+
+   VAR_OUTPUT 
+      Done : Bool;   // сделал измерение
+      Hole : Bool;   // ничего нет, имеем дырку
+      Chain : Bool;   // на какой цепи измерил (0 - на низкой, 1 - на высокой)
+      Length : Int;   // измеренная длина
+   END_VAR
+
+   VAR 
+      memento_chain : Bool;
+      sensor_triggers : Array[0..15] of Bool;
+      sensor_triggers_WORD { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} AT sensor_triggers : Word;
+      sensor_triggers_INT { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} AT sensor_triggers : Int;
+   END_VAR
+
+   VAR_TEMP 
+      real_index : Int;   // реальный индекс с учетом обратного порядка байтов
+      index : Int;
+      tmp_restruct : Word;   // слово для реструктуризации
+   END_VAR
+
+
+BEGIN
+	// СБрасываем флаг Done чтобы он висел всего одлин цикл после измерения
+	// 
+	#Done := FALSE;
+	#Hole := FALSE;
+	
+	// Получили разрешение на триггер сигналов - за работу
+	// В цикле проверяем каждый датчик
+	// 
+	IF (#CollectData AND #EnableSensors) THEN
+	    // TESTED!!
+	    // реструктурируем данные для удобного расчета
+	    // Байты в слове переставляются наоборот
+	    // 1111000_00001111 -> 00001111_1111000
+	    #tmp_restruct := SHL_WORD(IN:= BYTE_TO_WORD(#SensDataByte[1]), N := 8) OR BYTE_TO_WORD(#SensDataByte[0]);
+	    #tmp_restruct := #tmp_restruct AND INT_TO_WORD(WORD_TO_INT(SHL_WORD(IN := DINT_TO_WORD(16#1), N := #SensQuantity)) - 1);
+	    #sensor_triggers_WORD := #sensor_triggers_WORD OR #tmp_restruct;
+	    
+	    
+	    // Not optimized
+	    (* FOR #index := 0 TO #SensQuantity - 1 DO
+	        // вычислим реальный индекс в массиве
+	        // Аналогично в блоке FB_SetGaskets
+	        #real_index := #index + 7 - 2 * (#index MOD 8);
+	        // триггерим показания
+	        #sensor_triggers[#index] := #sensor_triggers[#index] OR #SensDataArray[#real_index]; 
+	    END_FOR; *)
+	    
+	END_IF;
+	
+	// снимаем сливки (длину) по заднему фронту хоть одного из колес
+	// 
+	IF (#CutPlankData) THEN
+	    // указываю, на какой цепи померил
+	    // 
+	    #memento_chain := #Chain;
+	    #Chain := #ActualChain;
+	    // если цепь та же самая явно что-то не то, выходим
+	    IF (#Chain = #memento_chain) THEN
+	        "ALG".TestCounter2 := "ALG".TestCounter2 + 1;
+	        RETURN;
+	    END_IF;
+	    
+	     // Вычисляем длину
+	    // 
+	    IF (#sensor_triggers[8]) THEN
+	        // TESTED!!
+	        // Вычисление длины
+	        #Length := #MinLength + #SensOffset * TRUNC_INT(LN(INT_TO_REAL(#sensor_triggers_INT)) / LN(2.0));
+	        
+	        (* // Not optimized
+	        // Далее проходим по массиву, накапливая длину по offset
+	        #Length := #MinLength;
+	        #index := 14;
+	        
+	        WHILE (#sensor_triggers[#index] AND (#index >= 16 - #SensQuantity))DO
+	            #Length := #Length + #SensOffset;
+	            #index := #index - 1;
+	        END_WHILE; *)
+	        
+	        #Done := TRUE;
+	    ELSE
+	        #Length := 0;
+	        #Done := FALSE;
+	        
+	        #Hole := TRUE;
+	    END_IF;
+	    
+	    // сбрасываю триггеры всех датчиков
+	    #sensor_triggers_WORD := 16#0;
+	    
+	END_IF;
+END_FUNCTION_BLOCK
+

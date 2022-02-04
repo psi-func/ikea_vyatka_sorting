@@ -1,0 +1,280 @@
+﻿FUNCTION_BLOCK "FB_Load_Zone"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR 
+      auto_mode_trigger : Bool;
+      M213_mode : Bool;
+      up_cmd_old : Bool;
+      down_cmd_old : Bool;
+      Lift_State : Int;
+      Memento_Lift_State : Int;
+      delayStart {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+      wait_1 {InstructionName := 'TOF'; LibVersion := '1.0'} : TOF;
+      wait_2 {InstructionName := 'TOF'; LibVersion := '1.0'} : TOF;
+      wait_3 {InstructionName := 'TOF'; LibVersion := '1.0'} : TOF;
+      wait_213 {InstructionName := 'TOF'; LibVersion := '1.0'} : TOF;
+   END_VAR
+
+   VAR_TEMP 
+      Lift_UP : Bool;
+      Lift_DOWN : Bool;
+      Cancel_UP : Bool;
+      Resume_UP : Bool;
+      Sert : Word;
+   END_VAR
+
+   VAR CONSTANT 
+      LIFT_WAITING : Int := 0;
+      LIFT_START : Int := 1;
+      LIFT_CYCLE : Int := 2;
+      LIFT_RETURN : Int := 3;
+      LIFT_STOP : Int := 4;
+      LIFT_CANCEL : Int := 5;
+      LIFT_UNKNOWN : Int := 10;
+      DELAY_START : Time := T#5s;
+   END_VAR
+
+
+BEGIN
+	REGION Ready and alarms LOADING ZONE
+	    
+	    "ALG".Ready_loading := "NaprUpr" AND "K1-113/1 3L1" AND "K1-112 2L1";
+	  
+	    "ALG".Alarm_loading :=
+	    // Транспортер загрузки
+	    "IM".M_211_Load_Transp.Alarm OR
+	    "IM".M_211_Load_Transp.Fault OR
+	    // Лифт Melektra
+	    "IM".M_212_Sort_Elevator.Fault OR
+	    // Наклонный транспортер
+	    "IM".M_213_ConvElevator.Fault OR
+	    "IM".M_213_ConvElevator.Alarm OR
+	    // Транспортер прокладок
+	    "IM".M_214_Gasket_receiver.Fault OR
+	    "IM".M_214_Gasket_receiver.Alarm OR
+	    // ??
+	    "IM".M_311_Strip_Remov.Fault OR
+	    // НЕТ СИГНАЛА ГОТОВОСТИ
+	    NOT "ALG".Ready_loading
+	    ;
+	    
+	END_REGION
+	
+	REGION Mode selector
+	    
+	    #auto_mode_trigger := (#auto_mode_trigger
+	    OR
+	    (
+	    "DGI".btn_Auto_Loading.CMD_ON
+	    ))
+	    AND NOT
+	    (
+	    NOT "ALG".Ready_loading OR
+	    "DGI".btn_Auto_Loading.CMD_OFF
+	    );
+	    
+	    // State lamps
+	    // 
+	    "H76.3" := "H78.0" := #auto_mode_trigger;
+	    
+	    // Auto SIGNAL
+	    "ALG".Auto_loading := #auto_mode_trigger AND NOT "Беопасность_DB".ProhibitionLoading;
+	    
+	END_REGION
+	
+	REGION M211
+	    // Backwards
+	    "IM".M_211_Load_Transp.btn_Back_ON := "E82.2";
+	    
+	    // Forward
+	    "IM".M_211_Load_Transp.OnCom :=
+	    
+	    "S81.1"
+	    OR
+	    ("IM".M_211_Load_Transp.btn_Back_ON)
+	    ;
+	    
+	    
+	END_REGION
+	
+	REGION M212
+	    // SIGNALS
+	    // 
+	    #Cancel_UP := "DGI".E82_5 AND NOT #down_cmd_old;
+	    #Resume_UP := "DGI".S82_4 AND NOT #up_cmd_old;
+	    
+	    #up_cmd_old := "DGI".S82_4;
+	    #down_cmd_old := "DGI".E82_5;
+	    
+	    // таймера
+	    // 
+	    #delayStart(IN := "koncevik2",
+	                PT := #DELAY_START);
+	    
+	    #wait_1(IN := "nakloniy transporter",
+	            PT := T#6s);
+	    
+	    #wait_2(IN := NOT "doska v priymke elevator",
+	            PT := T#3s);
+	    
+	    #wait_3(IN := "sloi doski",
+	            PT := T#6s);
+	    
+	    
+	    // запуск лифта
+	    CASE #Lift_State OF
+	        // ожидание пакета
+	        #LIFT_WAITING:
+	            
+	            // LOGIC
+	            #Lift_UP := #Lift_DOWN := FALSE;
+	            //"IM".M_212_Sort_Elevator.comUp := "IM".M_212_Sort_Elevator.comDown := FALSE;
+	            
+	            // Transitions
+	            IF (#delayStart.Q) THEN
+	                #Lift_State := #LIFT_START;
+	                GOTO EndAutomata;
+	            END_IF;
+	            
+	            IF (NOT "Lift Down") THEN
+	                #Lift_State := #LIFT_CANCEL;
+	            END_IF;
+	            
+	        #LIFT_START:
+	            
+	            // LOGIC
+	            // 
+	            #Lift_UP := TRUE;
+	            #Lift_DOWN := FALSE;
+	            //"IM".M_212_Sort_Elevator.comUp := #delayStart.Q;
+	            //"IM".M_212_Sort_Elevator.comDown := False;
+	            
+	            // Transitions
+	            IF ("sloi doski") THEN
+	                #Lift_State := #LIFT_CYCLE;
+	                GOTO EndAutomata;
+	            END_IF;
+	            
+	            IF ("Lift Upp") THEN
+	                #Lift_State := #LIFT_RETURN;
+	            END_IF;
+	            
+	            IF (#Cancel_UP) THEN
+	                #Memento_Lift_State := #Lift_State;
+	                #Lift_State := #LIFT_STOP;
+	            END_IF;
+	            
+	        #LIFT_CYCLE:
+	            // LOGIC
+	            // 
+	            #Lift_DOWN := FALSE;
+	            #Lift_UP := NOT (#wait_1.Q OR #wait_2.Q OR #wait_3.Q) OR "DGI".S82_4;
+	            
+	            // Transitions
+	            IF ("Lift Upp") THEN
+	                #Lift_State := #LIFT_RETURN;
+	            END_IF;
+	            
+	            IF (#Cancel_UP) THEN
+	                #Memento_Lift_State := #Lift_State;
+	                #Lift_State := #LIFT_STOP;
+	            END_IF;
+	            
+	        #LIFT_RETURN:
+	            // LOGIC
+	            #Lift_DOWN := TRUE;
+	            #Lift_UP := FALSE;
+	            
+	            // Transitions
+	            IF ("Lift Down") THEN
+	                #Lift_State := #LIFT_WAITING;
+	                GOTO EndAutomata;
+	            END_IF;
+	            
+	        #LIFT_STOP:
+	            // LOGIC;
+	            // 
+	            #Lift_DOWN := FALSE;
+	            #Lift_UP := False;
+	            
+	            // Transitions
+	            // 
+	            IF (#Cancel_UP) THEN
+	                #Lift_State := #LIFT_CANCEL;
+	                GOTO EndAutomata;
+	            END_IF;
+	            
+	            IF (#Resume_UP) THEN
+	               
+	                #Lift_State := #Memento_Lift_State;
+	                
+	            END_IF;
+	            
+	        #LIFT_CANCEL:
+	            // LOGIC
+	            #Lift_DOWN := TRUE;
+	            #Lift_UP := FALSE;
+	            
+	            // Transitions
+	            IF ("Lift Down") THEN
+	                #Lift_State := #LIFT_WAITING;
+	                GOTO EndAutomata;
+	            END_IF;
+	
+	        ELSE  // Lift unknown state
+	            ;
+	    END_CASE;
+	    
+	EndAutomata:
+	    "IM".M_212_Sort_Elevator.comDown := NOT "ALG".Alarm_loading AND #Lift_DOWN;
+	    "IM".M_212_Sort_Elevator.comUp := NOT "ALG".Alarm_loading AND #Lift_UP;
+	    
+	    IF ("IM".M_212_Sort_Elevator.outFWD) THEN
+	        "IM".M_212_Sort_Elevator.setSpeedAU := "SolveSpeed"(GeneralSpeed:="VELOCITY".GeneralSpeed, MotorKoef:="VELOCITY".koef_M_212, Correction:=0.0);
+	    ELSIF ("IM".M_212_Sort_Elevator.outBKD) THEN
+	        IF (#Lift_State = #LIFT_RETURN) THEN
+	            "IM".M_212_Sort_Elevator.setSpeedAU := 44.0;
+	        ELSE
+	            "IM".M_212_Sort_Elevator.setSpeedAU := 27.0;
+	            
+	        END_IF;
+	    ELSE
+	        "IM".M_212_Sort_Elevator.setSpeedAU := 0.0;
+	    END_IF;
+	    
+	    #Sert := UNSCALE(IN := "IM".M_212_Sort_Elevator.setSpeed, HI_LIM := 50.0, LO_LIM := -50.0, BIPOLAR := TRUE, OUT => "K1-212U":P);
+	    
+	    
+	END_REGION
+	
+	
+	REGION M213
+	    
+	    REGION Selector Mode 
+	        #M213_mode := "ServDB".PlankT <= 30;
+	        
+	        #wait_213(IN:=NOT "doska v priymke elevator",
+	                  PT:=T#5s);
+	        
+	    END_REGION
+	    
+	    "IM".M_213_ConvElevator.OnCom := NOT "ALG".Alarm_loading AND
+	    (
+	    (#M213_mode AND NOT #wait_213.Q)
+	    OR
+	    (NOT #M213_mode AND "doska v priymke elevator")
+	    );
+	    
+	    IF ("IM".M_213_ConvElevator.onOutFWD) THEN
+	        "IM".M_213_ConvElevator.setSpeedAU := "SolveSpeed"(GeneralSpeed := "VELOCITY".GeneralSpeed, MotorKoef := "VELOCITY".koef_M_213, Correction := 0.0);
+	    ELSE
+	        "IM".M_213_ConvElevator.setSpeedAU := 0.0;
+	    END_IF;
+	    
+	    #Sert := UNSCALE(IN := "IM".M_213_ConvElevator.setSpeed, HI_LIM := 50.0, LO_LIM := 0.0, BIPOLAR := FALSE, OUT => "K1-213U":P);
+	        
+	    
+	END_REGION
+	
+END_FUNCTION_BLOCK
+

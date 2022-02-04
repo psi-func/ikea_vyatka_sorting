@@ -1,0 +1,439 @@
+﻿FUNCTION_BLOCK "FB_Gasket_Carousel"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      make_layer : Bool;
+      full_reset : Bool;
+      pause : Bool;
+      try_unpause : Bool;
+      gasket_sensor : Bool;
+      hook_sensor : Bool;
+      last_hook_sensor : Bool;
+      ramp_upper_sensor : Bool;
+      gasket_cup_closed_sensor : Bool;
+      no_ramp_flag : Bool;
+      enable_double_schema : Bool;
+      layer_num : Int;
+      "2_schema_height" : Int;
+      GASKET_PLACES_MAX : Int;
+      HOOK_ENCODER_BARRIER : Int := 40;
+      GUARANTEED_HOOK_OFFSET : Int := 250;
+      OFFSET_DOWN_DEVICE : Int;
+      OFFSET_LAST_HOOK : Int;
+      OFFSET_LAYER_READY : Int;
+      OFFSET_REVERS : Int;
+      enc_pos : DInt;
+      "1_schema_server" : DInt;
+      "2_schema_server" : DInt;
+      default_speed : Real;
+      offset_speed : Real;
+      default_reverse_speed : Real;
+   END_VAR
+
+   VAR_OUTPUT 
+      Carousel_FWD : Bool;
+      Carousel_BWD : Bool;
+      Ski_UP : Bool;
+      Ski_DOWN : Bool;
+      m_busy : Bool;
+      m_acquire : Bool;
+      m_released : Bool;
+      ALM_NoGasketToUP : Bool;
+      ALM_SensHook : Bool;
+      ALM_SensLastHook : Bool;
+      s_man_cntl : Bool;
+      s_paused : Bool;
+      Carousel_Speed : Real;
+   END_VAR
+
+   VAR 
+      pos_defined : Bool;
+      gasket_ready : Bool;
+      _State : Int;
+      s_max_hooks : Int;
+      schema : DInt;
+      SX { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} AT schema : Array[0..31] of Bool;
+      enc_shot : DInt;
+      hook_hold_timer {InstructionName := 'TOF'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TOF;
+      last_hook_hold_timer {InstructionName := 'TOF'; LibVersion := '1.0'} : TOF;
+      gasket_filter {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+      Counters : Struct   // inner counters
+         hooks : Int;
+      END_STRUCT;
+      Memento : Struct   // memento pattern
+         fwd : Bool;
+         bwd : Bool;
+         up : Bool;
+         down : Bool;
+         state : Int;
+         speed : Real;
+      END_STRUCT;
+      SIG_old : Struct
+         hook : Bool;
+         last_hook : Bool;
+      END_STRUCT;
+   END_VAR
+
+   VAR_TEMP 
+      valid_hook : Bool;
+      corrected_state : Bool;
+      index : Int;
+      hook_period_pos : DInt;
+      SIG : Struct
+         new_hook : Bool;
+         last_hook : Bool;
+      END_STRUCT;
+   END_VAR
+
+   VAR CONSTANT 
+      STATE_WAITING : Int := 0;
+      STATE_CYCLE : Int := 3;
+      STATE_NO_MORE_GASKET : Int := 4;
+      STATE_POSITIONING : Int := 5;
+      STATE_FULL : Int := 7;
+      STATE_RELEASE : Int := 9;
+      STATE_MAN_CORRECT : Int := 11;
+      STATE_AUTO_CORRECT : Int := 13;
+      STATE_PAUSE : Int := 100;
+   END_VAR
+
+
+BEGIN
+	REGION Timers Delays
+	    #hook_hold_timer(IN := #hook_sensor,
+	                     PT := T#600ms);
+	    
+	    #gasket_filter(IN := #gasket_sensor,
+	                   PT := T#2s);
+	    
+	END_REGION
+	
+	REGION SIGNALS
+	    // hot signals
+	    #SIG.new_hook := #hook_hold_timer.Q AND NOT #SIG_old.hook;
+	    #SIG.last_hook := #last_hook_sensor AND NOT #SIG_old.last_hook;
+	    
+	    
+	    // old signals
+	    #SIG_old.hook := #hook_hold_timer.Q;
+	    #SIG_old.last_hook := #last_hook_sensor;
+	END_REGION
+	
+	
+	REGION Helpers
+	    
+	    #gasket_ready := (#gasket_ready OR
+	    (
+	    #gasket_filter.ET >= T#100ms
+	    )) AND NOT (
+	    #Ski_UP
+	    );
+	    
+	    #hook_period_pos := #enc_pos - #enc_shot;
+	    
+	END_REGION
+	
+	
+	REGION non-case restart and pause
+	    IF (#pause AND NOT #s_paused) THEN
+	        #Memento.state := #_State;
+	        
+	        #s_paused := TRUE;
+	        
+	        #_State := #STATE_PAUSE;
+	    END_IF;
+	    
+	    IF (#full_reset) THEN
+	        #_State := #STATE_WAITING;
+	    END_IF;
+	    
+	END_REGION
+	
+	StartAutomat:
+	CASE #_State OF
+	    #STATE_WAITING:
+	        // Logic
+	        #Carousel_FWD := FALSE;
+	        #Carousel_BWD := FALSE;
+	        #Ski_UP := FALSE;
+	        #Ski_DOWN := TRUE;
+	        
+	        #m_busy := FALSE; // флаг занятости карусели
+	        #m_acquire := FALSE; // флаг возможности захвата прокладок
+	        
+	        #s_paused := FALSE;
+	        #s_man_cntl := FALSE;
+	        
+	        // select schema
+	        IF (#layer_num < #"2_schema_height" AND #enable_double_schema) THEN
+	            #schema := #"2_schema_server";
+	        ELSE
+	            #schema := #"1_schema_server";
+	        END_IF;
+	        
+	        // reset alarms
+	        // 
+	        #ALM_SensHook := false;
+	        #ALM_SensLastHook := FALSE;
+	        #ALM_NoGasketToUP := FALSE;
+	        
+	        #pos_defined := FALSE;
+	        
+	        #Counters.hooks := 0;
+	        #Carousel_Speed := 0.0;
+	        
+	        // transitions
+	        // 
+	        IF (#make_layer AND #no_ramp_flag) THEN
+	            #_State := #STATE_CYCLE;
+	            #m_busy := TRUE;
+	            #m_released := FALSE; // можно ли опускать каретку
+	            
+	            #s_max_hooks := "getMaxBit"(MAX:=#GASKET_PLACES_MAX, number:=#schema);
+	            
+	        END_IF;
+	    
+	    #STATE_CYCLE:
+	        // Logic
+	        #Carousel_FWD := TRUE;
+	        #Carousel_BWD := FALSE;
+	        
+	        #Carousel_Speed := #default_speed;
+	        
+	        REGION helpers
+	            // Необходимость привода индекса из-за обратного порядка битов в байте числа Sxema
+	            // сначала по нужному нам индексу в числе понимаем, какой нужен байт: (11 + hookcounter) div 8
+	            // сдвиг на 11 потому что старшие 11 битов не нужны (всего 21 ложемент)
+	            // далее учтем обратный порядок битов в этом байте
+	            // нужный бит будет иметь позицию 7 - (11 + hookcounter) mod 8
+	            // теперь добавим данный номер бита к номеру байта и получим нужную позицию в числе
+	            // после упрощений получим результат:
+	            #index := 18 + #Counters.hooks - 2 * ((11 + #Counters.hooks) MOD 8);
+	            
+	            #valid_hook := (ABS_DINT(#hook_period_pos) >= #HOOK_ENCODER_BARRIER) OR (NOT #pos_defined);
+	            
+	        END_REGION
+	        
+	        //throw hook error
+	        #ALM_SensHook := #pos_defined AND (#hook_period_pos >= #GUARANTEED_HOOK_OFFSET);
+	        
+	        IF (#ALM_SensHook) THEN
+	            // заполняем структуру состояния
+	            // 
+	            #Memento.state := #_State;
+	            
+	            #_State := #STATE_MAN_CORRECT;
+	            GOTO EndMAchine;
+	        END_IF;
+	        
+	        
+	        // TODO: check conditions!!!!!
+	        // 
+	        // если лыжи надо опустить (они подняты) и проехали нужное расстояние
+	        IF (#Ski_UP) THEN
+	            IF (#hook_period_pos >= #OFFSET_DOWN_DEVICE) THEN
+	                // опускаем лыжи
+	                #Ski_UP := FALSE;
+	                #Ski_DOWN := TRUE;
+	            END_IF;
+	        ELSIF (#SIG.new_hook AND #valid_hook) THEN
+	            IF (#Counters.hooks < #GASKET_PLACES_MAX) THEN
+	                
+	                #ALM_NoGasketToUP := #SX[#index] AND NOT #gasket_ready;
+	                
+	                #Counters.hooks := #Counters.hooks + 1;
+	                
+	                #pos_defined := TRUE;
+	                #enc_shot := #enc_pos;
+	                
+	                #Ski_UP := #SX[#index] AND #gasket_ready;
+	                #Ski_DOWN := FALSE;
+	                
+	            END_IF;
+	           
+	           
+	        END_IF;
+	        
+	        // TEST!!! Ускорение
+	        IF (#Counters.hooks > #s_max_hooks AND NOT #Ski_UP) THEN
+	            #Carousel_Speed := #offset_speed;
+	        END_IF;
+	        
+	        // transitions
+	        IF (#ALM_NoGasketToUP) THEN
+	            #Memento.state := #_State;
+	            
+	            #_State := #STATE_AUTO_CORRECT;
+	            GOTO EndMAchine;
+	            
+	            // Если все ложементы прошли и опустили лыжи
+	        ELSIF (#Counters.hooks = #GASKET_PLACES_MAX AND NOT #Ski_UP) THEN
+	            #_State := #STATE_POSITIONING;
+	            
+	        END_IF;
+	        
+	    #STATE_NO_MORE_GASKET:
+	        ;
+	        
+	    #STATE_POSITIONING:
+	        // logic
+	        #Carousel_FWD := TRUE;
+	        #Carousel_BWD := FALSE;
+	        
+	        #Carousel_Speed := 6.5;
+	        
+	        #Ski_UP := FALSE;
+	        #Ski_DOWN := TRUE;
+	        
+	        // throw error
+	        #ALM_SensLastHook := (#hook_period_pos >= #OFFSET_LAYER_READY);
+	        
+	        // transitions
+	        IF (#ALM_SensLastHook) THEN
+	            // заполняем структуру состояния
+	            #Memento.state := #_State;
+	            
+	            #_State := #STATE_MAN_CORRECT;
+	            GOTO EndMAchine;
+	        END_IF;
+	        
+	        (*
+	        // helper
+	        // 
+	        //#valid_hook := ABS_DINT(#hook_period_pos) >= #HOOK_ENCODER_BARRIER;
+	        
+	        // прошел сенсор
+	        IF () THEN
+	            #Counters.hooks := #Counters.hooks + 1;
+	            #Carousel_Speed := 0.7 * #Carousel_Speed;
+	        END_IF;
+	        
+	        IF (#Counters.hooks = #index) THEN
+	            #_State := #STATE_FULL;
+	            #Carousel_FWD := False;
+	        END_IF; *)
+	        
+	        IF (#SIG.last_hook AND #hook_period_pos >= #OFFSET_LAST_HOOK) THEN
+	            
+	                #_State := #STATE_FULL;
+	                #Carousel_FWD := FALSE;
+	
+	        END_IF;
+	        
+	        
+	        
+	    #STATE_FULL:
+	        
+	        #Carousel_BWD := FALSE;
+	        #Carousel_FWD := False;
+	        #Carousel_Speed := 0.0;
+	        
+	        #m_acquire := TRUE; // забирайте прокладки ради Бога флаг захвата выставлен
+	        #m_released := FALSE;
+	        
+	        // если каретка приехала с закрытыми ложементами можно отъезжать
+	        IF (#ramp_upper_sensor AND #gasket_cup_closed_sensor) THEN
+	            #_State := #STATE_RELEASE;
+	            // снапшот
+	            // 
+	            #Counters.hooks := 0;
+	            #enc_shot := #enc_pos;
+	            #m_acquire := FALSE;
+	        END_IF;
+	        
+	        
+	    #STATE_RELEASE:
+	        #m_acquire := FALSE;
+	        
+	        #Carousel_BWD := TRUE;
+	        #Carousel_FWD := FALSE;
+	        
+	        #Carousel_Speed := #default_reverse_speed;
+	        
+	        IF (-#hook_period_pos >= #OFFSET_REVERS AND NOT #last_hook_sensor) THEN
+	            #Carousel_BWD := FALSE;
+	            #m_released := TRUE;
+	            #_State := #STATE_WAITING;
+	            GOTO EndMAchine;
+	        END_IF;
+	        
+	        
+	    #STATE_MAN_CORRECT:
+	        // даем ручное управление оператору
+	        #s_man_cntl := TRUE;
+	        #s_paused := TRUE;
+	        
+	        #Carousel_FWD := FALSE;
+	        #Carousel_BWD := FALSE;
+	        #Carousel_Speed := 0.0;
+	        
+	        // оператор выровнял крюк и датчик
+	        #corrected_state :=
+	        (#ALM_SensHook AND #hook_sensor)
+	        OR
+	        (#ALM_SensLastHook AND #last_hook_sensor);
+	        
+	        IF (#corrected_state AND #try_unpause) THEN
+	            
+	            // вернем состояние
+	            // 
+	            #_State := #Memento.state;
+	            #s_man_cntl := false;
+	            #s_paused := FALSE;
+	            
+	            // убиваем ошибки
+	            // 
+	            #ALM_SensHook := FALSE;
+	            #ALM_SensLastHook := FALSE;
+	            
+	            // создаем фронт для датчика
+	            // 
+	            #SIG_old.hook := FALSE;
+	            #SIG_old.last_hook := False;
+	            
+	        END_IF;
+	        
+	        
+	    #STATE_AUTO_CORRECT:
+	        
+	        #s_paused := TRUE;
+	        
+	        #Carousel_FWD := FALSE;
+	        #Carousel_BWD := FALSE;
+	        #Carousel_Speed := 0.0;
+	        
+	        #Ski_DOWN := TRUE;
+	        #Ski_UP := FALSE;
+	        
+	        // если при ошибке отсутсвия рейки рейка появилась то поднимем девайс и снимем паузу
+	        IF (#ALM_NoGasketToUP AND #gasket_ready) THEN
+	            #Ski_UP := TRUE;
+	            #Ski_DOWN := FALSE;
+	            
+	            #ALM_NoGasketToUP := FALSE;
+	            
+	            #s_paused := FALSE;
+	            
+	            #_State := #Memento.state;
+	        END_IF;
+	        
+	    #STATE_PAUSE:
+	        // ставим карусель на паузу
+	        #s_paused := TRUE;
+	        
+	        #Carousel_FWD := FALSE;
+	        #Carousel_BWD := FALSE;
+	        #Carousel_Speed := 0.0;
+	        
+	        IF (NOT #pause) THEN
+	            #_State := #Memento.state;
+	            
+	            #s_paused := False;
+	        END_IF;
+	        
+	END_CASE;
+	
+	EndMAchine:
+	RETURN;
+END_FUNCTION_BLOCK
+

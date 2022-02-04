@@ -1,0 +1,219 @@
+﻿FUNCTION_BLOCK "FB_HydroStations"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR 
+      Upor_resetter { S7_SetPoint := 'False'} : "CyclicSignal";
+      Movable_side_resetter : "CyclicSignal";
+      Gasket_Ramp_sync : "CyclicSignal";
+      DefectDrop_resetter : "CyclicSignal";
+      Board_Rotator { S7_SetPoint := 'False'} : "FB_IM2x0";   // переворот доски
+      Defect_Drop : "FB_IM2x0";   // сброс в брак
+      Upor_Sorting { S7_SetPoint := 'False'} : "FB_IM2x0";   // упор перед зоной оценки (поштучки)
+      Upor_Defective : "FB_IM2x2";   // упоры ПФМ брака
+      Gasket_Supplier { S7_SetPoint := 'False'} : "FB_IM2x0";   // выдача прокладки на карусель
+      Gasket_Ramp : "FB_IM2x3";   // рама прокладок
+      Gasket_Lodems : "FB_IM2x2";   // Стакан прокладок на раме
+      Forks_Pitcher : "FB_IM2x2";   // подъемник вил ПФМ
+      Movable_Side : "FB_IM2x0";   // Подвижный борт
+      Upor_PFM : "FB_IM2x0";   // упоры перед пощштучной выдачей
+      M_221_Large_HydroStationDrive : "FB_HySt_Drive_PassValve";   // двигатель маленькой гидростанции
+      M_337_Small_HydroStationDrive : "FB_HySt_Drive_PassValve";   // двигатель большой гидростанции
+   END_VAR
+
+
+BEGIN
+	REGION Small_HydroStationMechs
+	    // Statement section REGION
+	    
+	    #Board_Rotator(Ready:="ALG".Ready_Sorting AND #M_337_Small_HydroStationDrive.CMD_DriveOn,
+	                   Reset:="ALG".Reset,
+	                   btnMU := TRUE,
+	                   btnMU_On:="DGI".S88_7,
+	                   btnMU_Off:=NOT "DGI".S88_7,
+	                   set_T_On:=T#1s,
+	                   set_T_Off:=T#1s,
+	                   outFwd=> "Y223_1",
+	                   outBwd=>"Y223_2"
+	    );
+	    
+	    #DefectDrop_resetter(count:=240,
+	                         Meandr_counter:="ALG".Meandr);
+	    
+	    #Defect_Drop(
+	                 Ready:="ALG".Ready_Sorting AND #M_337_Small_HydroStationDrive.CMD_DriveOn,
+	                 Reset:="ALG".Reset OR #DefectDrop_resetter.change,
+	                 btnAU:= "ALG".Auto_Sorting,
+	                 set_T_On:=T#2s,
+	                 set_T_Off:=T#2200ms,
+	                 outFwd => "Y223_4",
+	                 outBwd => "Y223_3"
+	    );
+	    
+	    #Upor_Sorting(Ready := "ALG".Ready_Sorting  AND #M_337_Small_HydroStationDrive.CMD_DriveOn,
+	                  Reset := "ALG".Reset,
+	                  btnAU := "ALG".Auto_Sorting,
+	                  btnMU:=NOT ("ALG".Auto_Sorting),
+	                  btnMU_On:= "DGI".S80_0,
+	                  btnMU_Off:= "DGI".E80_1,
+	                  set_T_On := T#1s,
+	                  set_T_Off := T#500ms,
+	                  outFwd => "Y323_2",
+	                  outBwd => "Y323_1"
+	    );
+	    
+	    #Upor_Defective(OnSig:="DGI".FC_23_6,
+	                    OffSig:="DGI".FC_23_7,
+	                    Ready:="ALG".Ready_defect AND #M_337_Small_HydroStationDrive.CMD_DriveOn,
+	                    Reset:="ALG".Reset OR "DGI".S76_2,
+	                    btnAU:="ALG".Auto_defect,
+	                    btnMU:="DGI".S90_6 OR "DGI".E90_7, // OR "DGI".S80_0 OR "DGI".E80_1,
+	                    btnMU_ON:= "DGI".S90_6,
+	                    btnMU_OF:="DGI".E90_7,
+	                    Set_T_notON:=T#7s,
+	                    Set_T_notOFF:=T#7s,
+	                    onOutFWD=>"Upor_brak_up",
+	                    onOutBWD=>"Upor_brak_down"
+	                    
+	    );
+	    
+	END_REGION
+	
+	REGION Large_HydroStationMechs
+	    // Statement section REGION
+	    // 
+	
+	    #Gasket_Supplier(Ready := "ALG".Ready_Sorting AND #M_221_Large_HydroStationDrive.CMD_DriveOn,
+	                     Reset := "ALG".Reset OR "DGI".S76_2,
+	                     btnAU := "ALG".Auto_Sorting,
+	                     btnDU:="ServDB".GasketSupplier.BtnDU,
+	                     btnMU:=NOT ("ALG".Auto_Sorting OR "ServDB".GasketSupplier.BtnDU),
+	                     btnDU_On:="ServDB".GasketSupplier.BtnFwd,
+	                     btnDU_Off:="ServDB".GasketSupplier.BtnBwd,
+	                     set_T_On := T#1s,
+	                     set_T_Off := T#700ms,
+	                     AU=>"ServDB".GasketSupplier.AU,
+	                     DU=>"ServDB".GasketSupplier.DU,
+	                     MU=>"ServDB".GasketSupplier.MU,
+	                     outFwd => "Line4_2",
+	                     outBwd => "Line4_1"
+	    );
+	    
+	    #Gasket_Ramp_sync(count:=100,
+	                      Meandr_counter:="ALG".Meandr);
+	    
+	    
+	    #Gasket_Ramp(upSig:="DGI".B18_0,
+	                 midSig:="DGI".S18_2,
+	                 dnSig:="DGI".GasketRampSqueeze_timer.Q,
+	                 Ready:="ALG".Ready_Sorting AND #M_221_Large_HydroStationDrive.CMD_DriveOn,
+	                 Reset:="ALG".Reset OR "DGI".S76_2,
+	                 btnAU:="ALG".Auto_Sorting OR "ALG".VirtualAuto,
+	                 btnMU:= NOT ("ALG".Auto_Sorting OR "ALG".VirtualAuto),
+	                 btnMU_ON:="DGI".E84_6 OR "DGI".S78_6,
+	                 btnMU_OF:="DGI".S84_5 OR "DGI".E78_7,
+	                 sync_sig:=#Gasket_Ramp_sync.change OR "ALG".RampSyncSig,
+	                 set_time_notRun:=T#10s,
+	                 outUp=>"Line5_2",
+	                 outDn=>"Line5_1"
+	    );
+	   
+	    
+	    #Gasket_Lodems(OnSig := "DGI".B18_4,
+	                   OffSig := "DGI".B18_5,
+	                   Ready := "ALG".Ready_Sorting AND #M_221_Large_HydroStationDrive.CMD_DriveOn,
+	                   Reset := "ALG".Reset OR "DGI".S76_2,
+	                   btnAU := "ALG".Auto_Sorting,
+	                   btnMU := NOT "ALG".Auto_Sorting,
+	                   btnMU_ON := "DGI".S84_7,
+	                   btnMU_OF := "DGI".E85_0,
+	                   Set_T_notON := T#2s,
+	                   Set_T_notOFF := T#2s,
+	                   onOutFWD => "Line6_2",
+	                   onOutBWD => "Line6_1"
+	                   
+	    );
+	    
+	    #Movable_side_resetter(count:=500,
+	                           Meandr_counter:="ALG".Meandr);
+	    
+	    #Movable_Side(Ready := "ALG".Ready_Sorting AND #M_221_Large_HydroStationDrive.CMD_DriveOn,
+	                  Reset := "ALG".Reset OR #Movable_side_resetter.change OR "MovableBoard_CTRL_DB".ResetVirtualPos,
+	                  btnAU := "MovableBoard_CTRL_DB".AutoMode,
+	                  btnMU:=NOT "MovableBoard_CTRL_DB".AutoMode,
+	                  btnMU_On:="DGI".btn_Cnrl_Mov_Side.CMD_ON,
+	                  btnMU_Off:="DGI".btn_Cnrl_Mov_Side.CMD_OFF,
+	                  set_T_On := T#700ms,
+	                  set_T_Off := T#700ms,
+	                  outFwd => "Line3_2",
+	                  outBwd => "Line3_1"
+	                  
+	    );
+	    
+	    #Forks_Pitcher(OnSig:= false,//"DGI".B15_7,
+	                   OffSig:= "DGI".B15_5,
+	                   Ready:="ALG".Ready_Sorting AND #M_221_Large_HydroStationDrive.CMD_DriveOn,
+	                   Reset:="ALG".Reset OR "DGI".S76_2,
+	                   btnAU:="ALG".Auto_Sorting,
+	                   prmDU:=true,
+	                   btnMU:=NOT "ALG".Auto_Sorting,
+	                   btnMU_ON:= "DGI".S78_2,
+	                   btnMU_OF:= "DGI".E78_3,
+	                   Set_T_notON:=T#20m,
+	                   Set_T_notOFF:=T#2s,
+	                   onOutFWD=>"Line1_2",
+	                   onOutBWD=>"Line1_1"
+	    );
+	    
+	    #Upor_resetter(count:=90,
+	                   Meandr_counter:="ALG".Meandr);
+	    
+	    #Upor_PFM(Ready := "ALG".Ready_Sorting AND #M_221_Large_HydroStationDrive.CMD_DriveOn,
+	              Reset := "ALG".Reset OR "DGI".btn_ResetUporLine.CMD_ON OR #Upor_resetter.change,
+	              btnAU := "ALG".Auto_Sorting,
+	              set_T_On := "ALG".SqueezeUporPFM,// T#20m,
+	              set_T_Off := T#120ms,
+	              outFwd => "Line2_1",
+	              outBwd => "Line2_2"
+	    );
+	    
+	END_REGION
+	
+	#M_221_Large_HydroStationDrive(OnSig:="DGI".F221K1,
+	                               Ready:="ALG".Ready_Sorting,
+	                               Reset:="DGI".S76_2 OR "ALG".Reset ,
+	                               sigValveFault:=("Line1_1" AND "Line1_2") OR
+	                               ("Line2_1" AND "Line2_2") OR
+	                               ("Line3_1" AND "Line3_2") OR
+	                               ("Line4_1" AND "Line4_2") OR
+	                               ("Line5_1" AND "Line5_2") OR
+	                               ("Line6_1" AND "Line6_2"),
+	                               
+	                               PerepuskOn:=("Line1_1" OR "Line1_2") OR
+	                               #Upor_PFM.inWork OR
+	                               #Movable_Side.inWork OR
+	                               #Gasket_Supplier.inWork OR
+	                               ("Line5_1" OR "Line5_2") OR
+	                               ("Line6_1" OR "Line6_2"),
+	                                
+	                               Set_T_notOn:=T#500ms,
+	                               Set_T_notOFF:=T#500ms,
+	                               CMD_DriveOn=>"K1-221X1",
+	                              CMD_PassValveOn=>"Perepusk"
+	);
+	
+	#M_337_Small_HydroStationDrive(OnSig:="DGI".F337K1,
+	                               Ready:="ALG".Ready_Sorting,
+	                               Reset:="DGI".S76_2 OR "ALG".Reset,
+	                               sigValveFault:= ("Y223_1" AND "Y223_2") OR ("Y223_3" AND "Y223_4") OR ("Y323_1"
+	                               AND "Y323_2") OR ("Upor_brak_up" AND "Upor_brak_down"),
+	                               PerepuskOn:=("Y223_1" OR "Y223_2") OR ("Y223_3" OR "Y223_4") OR ("Y323_1"
+	                               OR "Y323_2") OR ("Upor_brak_up" OR "Upor_brak_down"),
+	                               Set_T_notOn:=T#500ms,
+	                               Set_T_notOFF:=T#500ms,
+	                               CMD_DriveOn=>"K1-337K1",
+	                               CMD_PassValveOn=>"Y223.3"
+	);
+	
+	
+END_FUNCTION_BLOCK
+

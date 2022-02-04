@@ -1,0 +1,42 @@
+﻿FUNCTION_BLOCK "ButtonSwitcher"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      Button_Sig : Bool;   //  сигнал с кнопки
+      Reset_State : Bool;   // сброс состояния
+      set_Trembling_Time : Time;   //  время на дребезг контактов
+   END_VAR
+
+   VAR_OUTPUT 
+      CMD_ON : Bool;   //  сигнал включения
+      CMD_OFF : Bool;   //  сигнал выключения
+   END_VAR
+
+   VAR 
+      Timer_Sig_old : Bool;   //  сигнал с таймера на прошлой итерации
+      inverter : Bool;   //  помогает инвертировать сигнал
+      Trembling_Timer {InstructionName := 'TON'; LibVersion := '1.0'} : TON;   //  таймер на дребезг контактов
+   END_VAR
+
+
+BEGIN
+	#CMD_ON :=  FALSE;
+	#CMD_OFF := FALSE;
+	
+	#Trembling_Timer(IN := #Button_Sig,
+	                 PT := #set_Trembling_Time
+	);
+	
+	IF (#Reset_State) THEN
+	    #inverter := FALSE;
+	END_IF;
+	
+	IF #Trembling_Timer.Q AND NOT #Timer_Sig_old THEN
+	    #CMD_ON := NOT #inverter;
+	    #CMD_OFF := #inverter;
+	    #inverter := NOT #inverter;
+	END_IF;
+	
+	#Timer_Sig_old := #Trembling_Timer.Q;
+END_FUNCTION_BLOCK
+

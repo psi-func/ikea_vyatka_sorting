@@ -1,0 +1,41 @@
+﻿FUNCTION "GotNewLay" : Void
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      PlankL : Int;   // длина досок
+      PlankW : Int;
+      PlankT : Int;
+   END_VAR
+
+   VAR_IN_OUT 
+      PlanksInLayer : Int;   // досок в текущем слое
+      QPlanks_OK : Int;   // собрано досок в пакет
+      Server_Volume : DInt;   // объем на серваке
+      Layer_Volume : DInt;   // объем слоя
+      Local_Volume : DInt;   // текущий насчитанный объем
+   END_VAR
+
+
+BEGIN
+	// Добавляем слой к количеству хороших досок
+	#QPlanks_OK := #QPlanks_OK + #PlanksInLayer;
+	
+	IF (#PlankL <> 0) THEN
+	    #Layer_Volume := INT_TO_DINT(#PlanksInLayer) * INT_TO_DINT(#PlankL / 100) * INT_TO_DINT(#PlankW) * INT_TO_DINT(#PlankT);
+	END_IF;
+	
+	
+	// Добавляем значение объема слоя к текущему на ПЛК
+	#Local_Volume := #Local_Volume + #Layer_Volume;
+	
+	// Обновляем показания на серваке
+	// 
+	#Server_Volume := #Local_Volume;
+	
+	#PlanksInLayer := 0;
+	// Обнуляем счет объема слоя
+	// 
+	#Layer_Volume := 0;
+END_FUNCTION
+

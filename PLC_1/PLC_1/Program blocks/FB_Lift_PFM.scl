@@ -1,0 +1,12 @@
+﻿FUNCTION_BLOCK "FB_Lift_PFM"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      lift_upper_sensor : Bool;
+      lift_down_sensor : Bool;
+   END_VAR
+
+
+BEGIN
+END_FUNCTION_BLOCK
+

@@ -1,0 +1,55 @@
+﻿FUNCTION_BLOCK "FB_HySt_Drive_PassValve"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      OnSig : Bool;   // сигнал обратной связи двигателя
+      Ready : Bool;   // сигнал готовности
+      Reset : Bool;   // сброс ошибки
+      sigValveFault : Bool;   // сигнал ошибки открытия катушек
+      PerepuskOn : Bool;   // сигнал на открытие перепускного клапана
+      PumpOn : Bool;   // включение насоса станции
+      Set_T_notOn : Time;   // установка времени таймера на невключение
+      Set_T_notOFF : Time;   // установка времени таймера на невыключение
+   END_VAR
+
+   VAR_OUTPUT 
+      CMD_DriveOn : Bool;   // команда включение двигателя
+      CMD_PassValveOn : Bool;   // команда открытие перепускного клапана
+      Fault : Bool;   // выпал в ошибку
+      notOn : Bool;   // ошибка невключения
+      notOff : Bool;   // ошибка невыключения
+      wrongValveState : Bool;   // ошибка открытия катушек
+   END_VAR
+
+   VAR 
+      T_notOn_Ton {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;   // таймер невключения
+      T_notOff_Ton {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;   // таймер невыключения
+   END_VAR
+
+
+BEGIN
+	#CMD_DriveOn := #Ready AND #PumpOn AND NOT #Fault;
+	
+	#CMD_PassValveOn := #Ready AND #PerepuskOn AND NOT #Fault;
+	
+	#T_notOn_Ton(
+	             IN:= #CMD_DriveOn AND NOT #OnSig AND NOT #Reset,
+	             PT := #Set_T_notOn
+	);
+	
+	#notOn := (#notOn OR #T_notOn_Ton.Q) AND NOT #Reset;
+	
+	#T_notOff_Ton(
+	              IN := NOT #CMD_DriveOn AND #OnSig AND NOT #Reset,
+	              PT := #Set_T_notOFF
+	);
+	
+	#notOff := (#notOff OR #T_notOff_Ton.Q) AND NOT #Reset;
+	#wrongValveState := (#wrongValveState OR #sigValveFault) AND NOT #Reset;
+	
+	
+	
+	#Fault := #notOff OR #notOn OR #wrongValveState;
+	
+END_FUNCTION_BLOCK
+

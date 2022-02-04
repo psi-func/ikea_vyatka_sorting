@@ -1,0 +1,61 @@
+﻿FUNCTION_BLOCK "SensorLine_Clogging"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      KeyFazer : Bool;
+      Reset : Bool;
+      SensLine_sig : Word;
+   END_VAR
+
+   VAR_OUTPUT 
+      AlarmSensor_dirty : Array[0..15] of Bool;
+      AlarmArray { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} AT AlarmSensor_dirty : Word;
+      AlarmSensorLine : Bool;
+   END_VAR
+
+   VAR 
+      KeyFazer_old : Bool;
+      LowDetected : Word;
+      Ala : Word;
+   END_VAR
+
+   VAR_TEMP 
+      front : Bool;
+   END_VAR
+
+   VAR CONSTANT 
+      SensorQuantity : Int := 15;
+   END_VAR
+
+
+BEGIN
+	#front := (#KeyFazer AND NOT #KeyFazer_old)(* OR (NOT #KeyFazer AND #KeyFazer_old) *);
+	
+	IF (#front) THEN
+	    // проверяем, были ли все сигналы хоть раз False
+	  
+	    #AlarmArray := #AlarmArray OR NOT #LowDetected;
+	    
+	    #AlarmSensorLine := #AlarmSensorLine OR (#AlarmArray AND 2#1111_1111_0111_1111) <> 16#0;
+	    //обнуляем триггеры, начинаем новый цикл
+	    #LowDetected := 16#0;
+	    
+	ELSE
+	    // в противном случае смотри за тем чтобы хоть раз были в нуле сенсоры
+	    //
+	    #LowDetected := #LowDetected OR NOT #SensLine_sig;
+	END_IF;
+	
+	IF (#Reset AND #AlarmSensorLine) THEN
+	    #AlarmArray := 2#0000_0000_0000_0000;
+	    #AlarmSensorLine := FALSE;
+	END_IF;
+	
+	#Ala := #AlarmArray;
+	
+	
+	// ловим фронты
+	//
+	#KeyFazer_old := #KeyFazer;
+END_FUNCTION_BLOCK
+

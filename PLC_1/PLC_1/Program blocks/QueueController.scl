@@ -1,0 +1,327 @@
+﻿FUNCTION_BLOCK "QueueController"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      Reset : Bool;   // сброс ошибки
+      ResetSxema : Bool;   // сброс калибровки
+      NoChessLayout : Bool;   // не нужна ли шахматка при укладке
+      CheckPlankL : Bool;   // нужна ли проверка длины доски
+      ChainInd : Bool;   // цепь на которой было измерение
+      Hole : Bool;   // Дырка под линейкой
+      Done : Bool;   // Линейка сделала измерение длины
+      Length : Int;   // Измеренная длина
+      CheckL : Int;   // Проверяемая длина
+      PT : Int;   // досок на слой
+      plankW : Int;   // ширина доски
+      plankT : Int;   // толщина доски
+      OffsetBB : Int;   // сдвиг между попом и пушем
+   END_VAR
+
+   VAR_OUTPUT 
+      CommonSxemaAlarm : Bool;   // общая авария схемы
+      AlarmNotAwaitableBoard : Bool;   // авария лишняя доска в схеме
+      AlarmNotValidHole : Bool;   // авария нет дырки между схемами
+      AlarmCount : Bool;   // ошибка счета на слой
+      AlarmWrongLength : Bool;   // ошибка неверная длина
+      Hint_1 : Bool;   // уточнение к аварии 1 (после следующей доски должна быть дырка)
+      Hint_2 : Bool;   // уточненная авария 2 (выкидываем доску)
+      Hint_3 : Bool;   // уточнение по ожидаемой цепи
+      CorrectingCounters : Bool;   // Состояние корректировки счетчиков упоров
+      CorrectCounters : Bool;   // корректировка счета
+      CorrectWheel : Bool;   // корректировка колеса (высокое или низкое)
+      GettingLastLay : Bool;   // Сейчас собираю последний слой на пакет
+      CurrentLayCounter : Int;   // текущий счетчик для проверки схемы слоя
+   END_VAR
+
+   VAR_IN_OUT 
+      BoardsInLay_counter : Int;   // счетчик досок на слой
+      Layer_Volume { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} : DInt;   // объем  текущего слоя, м3
+   END_VAR
+
+   VAR 
+      Calibrated : Bool;   // калибровка решателя
+      AwaitedChain : Bool;   // Ожидаемая по высоте цепь
+      AwaitEmptySpace : Bool;   // Ожидание пустого места
+      ProcessedError : Bool;   // ошибка обработана
+      CanPutBoardHoleBefore : Bool;   // можно пололжить доску в пустоту вперед
+      LugCounter : Int;
+      Data { S7_SetPoint := 'False'} : Array[0..#QueueSize] of "PlankOnChain";   // основные данные о досках
+   END_VAR
+
+   VAR_TEMP 
+      ValidSpace : Bool;   // валидное поле для потенциальной доски
+      WrongLength : Bool;   // ошибка некорректная длина доски
+      Pop_Push : Bool;   // заполнить/вытащить
+      index : Int;   // индекс для копирования
+      PlankVolume : DInt;   // объем досточки
+   END_VAR
+
+   VAR CONSTANT 
+      QueueSize : Int := 15;   // размер очереди
+      CorrectingOffset : Int := 7;   // количество бобышек, которое проходит транспортер для корректировки
+   END_VAR
+
+
+BEGIN
+	#CorrectCounters := FALSE;
+	    
+	REGION Проверка длины 
+	    // Проверка длины
+	    // 
+	    #WrongLength := #CheckPlankL AND #Done AND #Length <> #CheckL;
+	        
+	    #AlarmWrongLength := (#AlarmWrongLength OR #WrongLength);
+	END_REGION
+	    
+	    
+	REGION Логика проверки схемы укладки досок
+	    #Pop_Push := #Done OR #Hole;
+	        
+	    IF (#Calibrated) THEN
+	        IF (NOT #AwaitEmptySpace) THEN
+	                        
+	                    #ValidSpace := #AwaitedChain = #ChainInd;
+	                        
+	                    IF (#Hole OR #AlarmWrongLength) THEN
+	                        // Если пришла дырка считаем запас
+	                        // будет нужно для выкидывания хинта операторам
+	                        // Если доска некорректной длины не будем считать это за дырку
+	                        // запустим восстановление счета упоров
+	                        // 
+	                        #CanPutBoardHoleBefore := #ValidSpace AND NOT #AlarmWrongLength;
+	                            
+	                    ELSIF (#Done) THEN
+	                        // Если пришла нормальная по длине доска и не дырка
+	                        // 
+	                        IF (#ValidSpace OR #NoChessLayout) THEN
+	                                // сбрасываем флаг валидности цепи для укладки потенциально неправильной доски
+	                                // 
+	                                #CanPutBoardHoleBefore := FALSE;
+	                               
+	                                 // меняем ожидаемую цепь
+	                                 #AwaitedChain := NOT #AwaitedChain;
+	                                    
+	                                 // увеличиваем счет
+	                                 // И проверяем, надо ли дальше ждать пустое место
+	                                 #CurrentLayCounter := #CurrentLayCounter + 1;
+	                                    
+	                                 // Проверяем, набрали ли на слой доски
+	                                 // Если набрали просто выставляем ожидание на дырку
+	                                 #AwaitEmptySpace := #CurrentLayCounter = #PT;
+	                                   
+	                        ELSE
+	                            // Если случилось что-то не то
+	                            //  выкидываем ошибку о том что пришла доска но не на той цепи
+	                            #AlarmNotAwaitableBoard := NOT #ValidSpace;
+	                                    
+	                        END_IF;
+	                        
+	                    END_IF;
+	                           
+	        ELSE
+	        // Ожидаем пустое место
+	                    IF (#Pop_Push) THEN
+	                         //НО пришла доска, выкинем ошибку
+	                         #AlarmNotValidHole := #Done;
+	                         // Была ожидаемая дырка все гуд, можно сбросить все необходимое
+	                         
+	                         //Если ожидали дырку и получили ее, просто меняем ожидаемую доску на обратную от предыдущего слоя
+	                         IF (#PT MOD 2 = 0) THEN
+	                              #AwaitedChain := NOT #AwaitedChain;
+	                         END_IF;
+	                                
+	                         #CurrentLayCounter := 0;
+	                         //Говорим, что данная образование не может служить для доски, нельзя положить на данную пустую цепь
+	                         #CanPutBoardHoleBefore := FALSE;
+	                            
+	                         // Выходим отсюда
+	                         #AwaitEmptySpace := FALSE;
+	                                
+	                    END_IF;
+	                       
+	        END_IF;
+	    END_IF;
+	END_REGION
+	        
+	    REGION Обработка ошибок и выкидывание хинтов
+	        
+	        IF (#AlarmNotAwaitableBoard AND NOT #ProcessedError) THEN
+	            //ошибка ДОСКА ПРИШЛА НЕ НА ТОЙ ЦЕПИ
+	            //Эта ошибка выползает только в режиме раскатки
+	            //При этой ошибке доска считается линейкой и записывается в очередь, поэтому ее важно просто положить на нужную цепь соответсвенно низкую или высокую после линейки
+	            // 
+	            // 1 вариант решения проблемы
+	            // Если у нас есть лишная пустота выкидываем сообщение о том чтобы перекинули доску на соседнюю высокую или низкую цепь, из системы доску НЕ удаляем
+	            // 2 вариант 
+	            // Если нет лишних пустот удаляем доску из системы и говорим убрать ее нафиг с линии
+	            // 
+	            #ProcessedError := TRUE;
+	            // выдаем хинт
+	            // 
+	            #Hint_1 := #CurrentLayCounter = #PT - 1; // последняя доска в слое
+	            //#Hint_2 := true;
+	            
+	            #Hint_2 := NOT #CanPutBoardHoleBefore; // если можем подложить доску вперед, просто даем системе ее учесть
+	            
+	             IF (#CanPutBoardHoleBefore) THEN
+	                // Если возможен вариант с перекидыванием доски вперед на бобышку, используем его, учтем доску в системе
+	                // сбрасываем флаг валидности цепи для укладки потенциально неправильной доски
+	                // 
+	                #CanPutBoardHoleBefore := FALSE;
+	                
+	                
+	                // увеличиваем счет
+	                // И проверяем, надо ли дальше ждать пустое место
+	                // так как дырка образуется сама собой проверяем, не можем ли просто начать счет заново
+	                // 
+	                IF (#Hint_1) THEN
+	                    // это будет последняя доска на слой плюс получили дырку
+	                    // ПОКА ЧТО ЭТО ДУБЛИРОВАНИЕ КОДА, НЕТ ВРЕМЕНИ ПЕРЕДЕЛАТЬ!
+	                    
+	                    //Если ожидали дырку и получили ее, просто меняем ожидаемую доску на обратную от предыдущего слоя
+	                    IF (#PT MOD 2 <> 0) THEN
+	                        #AwaitedChain := NOT #AwaitedChain;
+	                    END_IF;
+	                    
+	                    #CurrentLayCounter := 0;
+	                    
+	                ELSE
+	                    // если доска не последняя в слой
+	                    // 
+	                    // меняем ожидаемую цепь
+	                    #AwaitedChain := NOT #AwaitedChain; 
+	                    
+	                    // увеличиваем счет
+	                    // И проверяем, надо ли дальше ждать пустое место
+	                    #CurrentLayCounter := #CurrentLayCounter + 1;
+	                    
+	                END_IF;
+	     
+	            END_IF; 
+	            
+	            #Hint_3 := #AwaitedChain; // хинт на ожидаемую цепь
+	            
+	        ELSIF (#AlarmNotValidHole AND NOT #ProcessedError) THEN
+	            //ошибка ОЖИДАЛАСЬ ДЫРКА А ПРИШЛА ДОСКА НА ЦЕПИ
+	            //Эту доску по-любому будем выкидывать, поэтому вопрос решается легко
+	            #ProcessedError := TRUE;
+	            #Hint_2 := TRUE;
+	            // Дополнительно скажем заранее, какая цепь должна быть следующей
+	            #Hint_3 := #AwaitedChain;
+	        END_IF;
+	        
+	    END_REGION
+	    
+	    
+	    REGION Корректировка счетчиков упоров
+	        // Statement section REGION
+	        // Ждем прохождения бобышек между плавниками и линейкой, корректируем счет на упорах перед бобышками
+	        // 
+	        IF (#CorrectingCounters AND (#Done OR #Hole)) THEN
+	                #LugCounter := #LugCounter + 1;
+	                
+	                #CorrectWheel := #AwaitedChain;
+	                
+	                #CorrectCounters := #LugCounter = #CorrectingOffset;
+	                
+	                #CorrectingCounters := NOT #CorrectCounters;
+	        END_IF;
+	        
+	    END_REGION
+	    
+	    REGION Калибруем решатель
+	        // Если супер-проверщик по линейке не откалиброван, не знает, какая первая доска должна прийти, обязательно его калибруем по первой пришедшей "живой" доске
+	        // Занимаемся проверкой шахматки в соответствующем режиме
+	        IF (#Done AND NOT #Calibrated AND NOT #AlarmWrongLength) THEN
+	            #Calibrated := TRUE;
+	            // Поняли, какую цепь ожидаем следующей
+	            #AwaitedChain := NOT #ChainInd;
+	            // НЕ ожидаем пустое место, вряд ли у них пакет из одной доски собирается
+	            #AwaitEmptySpace := FALSE;
+	            // Добавили доску к счету
+	            // 
+	            #CurrentLayCounter := 1;
+	            // Счет слоев обнуляем
+	            // 
+	            #GettingLastLay := FALSE;
+	            
+	            //После сброса запускаем задание на коррекцию счета упоров
+	            #CorrectingCounters := TRUE;
+	            #LugCounter := 0;
+	        END_IF;
+	        
+	    END_REGION
+	    
+	    REGION Сброс калибровки
+	        // Statement section REGION
+	        
+	        IF (#ResetSxema) THEN
+	            #Calibrated := FALSE;
+	        END_IF;
+	    END_REGION
+	    
+	    // Здесь логика заполнения и опустошения очереди
+	    // 
+	    REGION Push and Pop
+	        
+	        IF (#Pop_Push) THEN
+	            // Если чет было добавим это к объему и количеству досок на слой
+	            // 
+	            #AlarmCount := (#AlarmCount OR (#Data[0].NoEmpty AND #BoardsInLay_counter >= #PT));
+	            
+	            IF (#Data[0].NoEmpty AND #BoardsInLay_counter < #PT) THEN
+	                // Считаем объем слоя! на вилах
+	                #PlankVolume := INT_TO_DINT(#plankT) * INT_TO_DINT(#plankW) * INT_TO_DINT(#Data[0].Length) / 100;
+	                #Layer_Volume := #Layer_Volume + #PlankVolume;
+	                #BoardsInLay_counter := #BoardsInLay_counter + 1;
+	                
+	            END_IF;
+	            
+	            
+	            // сдвиг всех значений на единицу
+	            FOR #index := 0 TO #OffsetBB - 1 DO
+	                // с первого до длины - 1
+	                // 
+	                #Data[#index] := #Data[#index + 1];
+	            END_FOR;
+	            
+	            IF (#AlarmNotAwaitableBoard AND NOT #Hint_2) THEN
+	                // Если была авария переложить доску на соседнюю бобышку, заполним предыдущее значение
+	                // 
+	                #Data[#OffsetBB - 1] := "PlankChain"(Chain := NOT #ChainInd, Empty := FALSE, Length := #Length);
+	            END_IF;
+	            // Заполнение очереди померенной доской
+	            #Data[#OffsetBB] := "PlankChain"(Chain := #ChainInd, Empty:= #Hole OR #AlarmNotAwaitableBoard OR #AlarmNotValidHole OR #AlarmWrongLength, Length := #Length);
+	
+	        END_IF;
+	    END_REGION
+	    
+	    REGION Сброс ошибок
+	        // Statement section REGION
+	        IF (#Reset AND (#AlarmNotAwaitableBoard OR #AlarmNotValidHole OR #AlarmWrongLength OR #AlarmCount)) THEN
+	            //После сброса запускаем задание на коррекцию счета упоров
+	            #CorrectingCounters := #AlarmNotAwaitableBoard OR #AlarmNotValidHole OR #AlarmWrongLength;
+	            #LugCounter := 0;
+	            
+	            #AlarmNotAwaitableBoard := False;
+	            #AlarmNotValidHole := FALSE;
+	            #AlarmWrongLength := FALSE;
+	            #AlarmCount := FALSE;
+	            
+	            #CommonSxemaAlarm := FALSE;
+	            #Hint_3 := FALSE;
+	            #Hint_2 := FALSE;
+	            #Hint_1 := FALSE;
+	            
+	            #ProcessedError := FALSE;
+	            
+	            
+	        END_IF;
+	        
+	        #CommonSxemaAlarm := #CommonSxemaAlarm OR (#AlarmNotAwaitableBoard OR #AlarmNotValidHole OR #AlarmCount OR #AlarmWrongLength);
+	    END_REGION
+	
+	
+END_FUNCTION_BLOCK
+

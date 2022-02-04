@@ -1,0 +1,40 @@
+﻿FUNCTION "getMaxBit" : Int
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      MAX : Int;
+      number : DInt;
+   END_VAR
+
+   VAR_TEMP 
+      index : Int;
+      i : Int;
+      num : DInt;
+      SX AT num : Array[0..31] of Bool;
+   END_VAR
+
+
+BEGIN
+	// naive
+	// 
+	#num := #number;
+	
+	FOR #i := #MAX - 1 TO 0 BY -1 DO
+	    // Необходимость привода индекса из-за обратного порядка битов в байте числа Sxema
+	    // сначала по нужному нам индексу в числе понимаем, какой нужен байт: (11 + hookcounter) div 8
+	    // сдвиг на 11 потому что старшие 11 битов не нужны (всего 21 ложемент)
+	    // далее учтем обратный порядок битов в этом байте
+	    // нужный бит будет иметь позицию 7 - (11 + hookcounter) mod 8
+	    // теперь добавим данный номер бита к номеру байта и получим нужную позицию в числе
+	    // после упрощений получим результат:
+	    #index := 18 + #i - 2 * ((11 + #i) MOD 8);
+	    IF (#SX[#index]) THEN
+	        EXIT;
+	    END_IF;
+	END_FOR;
+	
+	
+	#getMaxBit := #i;
+	
+END_FUNCTION
+

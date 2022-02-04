@@ -1,0 +1,30 @@
+﻿FUNCTION_BLOCK "Adder"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      Signal : Bool;   // входной сигнал
+      Reset : Bool;   // сброс счетчика
+      PT : Int;   // Пресет счетчика
+   END_VAR
+
+   VAR_IN_OUT 
+      Count : Int;
+   END_VAR
+
+   VAR 
+      Signal_old : Bool;
+   END_VAR
+
+
+BEGIN
+	IF (#Signal AND NOT #Signal_old AND #Count < #PT ) THEN
+	    #Count := #Count + 1;
+	END_IF;
+	
+	IF (#Reset) THEN
+	    #Count := 0;
+	END_IF;
+	
+	#Signal_old := #Signal;
+END_FUNCTION_BLOCK
+

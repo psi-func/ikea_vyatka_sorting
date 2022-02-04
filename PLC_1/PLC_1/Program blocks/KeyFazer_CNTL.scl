@@ -1,0 +1,108 @@
+﻿FUNCTION_BLOCK "KeyFazer_CNTL"
+{ S7_Optimized_Access := 'FALSE' }
+AUTHOR : Aspir
+VERSION : 0.1
+   VAR_INPUT 
+      keyfazer_1 : Bool;   // сигнал кейфазера 1
+      keyfazer_2 : Bool;   // сигнал кейфазера 2
+      enableSensors : Bool;   // бит детектинга кейфазеров
+   END_VAR
+
+   VAR_OUTPUT 
+      WheelChanged : Bool;   // колесо изменилось
+      ActualWheelSig : Bool;   // сигнал с актуального колеса
+      Chain : Bool;   // какой именно кейфазер сморим
+      Window : Bool;   // окно между кейфазерами
+      FaultKeyFazer : Bool;   // ошибка (померены две одинаковые цепи подряд)
+   END_VAR
+
+   VAR 
+      active_wheel : Bool;   // текущее активное обмеряемое колесо
+      validSig_old : Bool;
+      changing_wheel : Bool;   // меняем показания реального колеса
+      memento_act_wheel : Bool;   // запомненное колесо
+      real_chain : Bool;   // реальная цепь
+      AntiNoValidFront_timer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;   // таймер защищающий от ложного фронта при включении двигателя
+   END_VAR
+
+   VAR_TEMP 
+      stableRun : Bool;   // стабильный режим работы механизма
+      faultSig : Bool;   // ошибочный сигнал с колес
+      validSig : Bool;   // действительный сигнал с колеса
+   END_VAR
+
+   VAR CONSTANT 
+      filterDelay : Time := T#200ms;   // через это время начнем видеть задние фронты колес
+   END_VAR
+
+
+BEGIN
+	(*
+	Кейфазеры работают по четверти периода оборота вала цепи с бобышками
+	
+	По их сигналу необходимо понимать когда должна обмерять линейка, проводить счет досок на слой ПФМ
+	*)
+	
+	(* 
+	//собираем все фронты сигналов и передние и задние
+	//
+	#p_front_1 := #keyfazer_1 AND NOT #keyfazer_1_old;
+	#p_front_2 := #keyfazer_2 AND NOT #keyfazer_2_old;
+	#n_front_1 := #keyfazer_1_old AND NOT #keyfazer_1;
+	#n_front_2 := #keyfazer_2_old AND NOT #keyfazer_2;
+	
+	//сохраняем значения для ловли фронтов
+	//
+	#keyfazer_1_old := #keyfazer_1;
+	#keyfazer_2_old:= #keyfazer_2; *)
+	
+	#AntiNoValidFront_timer(IN := #enableSensors,
+	                        PT := #filterDelay);
+	
+	#stableRun := #AntiNoValidFront_timer.Q;
+	
+	#validSig := #active_wheel AND #keyfazer_1 OR NOT #active_wheel AND #keyfazer_2; // верный сигнал
+	#faultSig := #active_wheel AND #keyfazer_2 OR NOT #active_wheel AND #keyfazer_1; //сигнал с ошибочным колесом
+	
+	// выходные сигналы
+	// 
+	#ActualWheelSig := #validSig;
+	#Chain := #active_wheel;
+	#Window := NOT (#keyfazer_1 OR #keyfazer_2);
+	
+	
+	// для внутреннего контроля
+	// 
+	#real_chain := (#real_chain OR #keyfazer_1) AND NOT #keyfazer_2; // ВСЕГДА ПРЫГАЕТ МЕЖДУ ВЫСОКОЙ И НИЗКОЙ ЦЕПЬЮ
+	
+	//Если только поменял колесо и пошел сигнал ошибки значит чет не то и просто не будем менять еще раз колесо, это наверное дребезг
+	//
+	#changing_wheel := (#changing_wheel OR #WheelChanged) AND NOT (#validSig AND #stableRun);
+	
+	//крутим этот сигнал ровно один цикл
+	#WheelChanged := FALSE;
+	
+	(*
+	    Меняем колеcо по двум причинам:
+	    1 - естественная:
+	    транспортер едет и нужный сенсор дал задний фронт
+	    2 - если вдруг по инерции проехали нужный нам задний фронт, то при включении двигателя проверим один раз ушли мы с датчика или нет
+	*)
+	
+	IF (#stableRun AND ((NOT #validSig AND #validSig_old) OR (#faultSig AND NOT #changing_wheel))) THEN
+	    #active_wheel := NOT #active_wheel;
+	    #WheelChanged := TRUE;
+	    #FaultKeyFazer := #real_chain <> #memento_act_wheel;
+	    #memento_act_wheel := #real_chain;
+	    
+	    IF (#faultSig) THEN
+	        #validSig := #active_wheel AND #keyfazer_1 OR NOT #active_wheel AND #keyfazer_2; // верный сигнал вычислим на всякий случай если сразу будет еще фронт (вряд ли нужно, такой большой инерции быть не может)
+	    END_IF;
+	END_IF;
+	
+	
+	// для фронтов
+	// 
+	#validSig_old := #validSig;
+END_FUNCTION_BLOCK
+

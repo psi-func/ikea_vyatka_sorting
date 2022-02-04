@@ -1,0 +1,18 @@
+﻿FUNCTION "WhatToDoWithNewSxema" : Void
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+
+BEGIN
+	// зануляем счет на бобышках
+	// 
+	"UporPFM_DB".Counter := 0;
+	
+	// снимаем калибровку линейки
+	// 
+	"QueueController_DB".Calibrated := FALSE;
+	
+	// для режима из пакета  в пакет
+	// 
+	"DynamicLayer_CNTL_DB".notOk_Counter := 0;
+END_FUNCTION
+

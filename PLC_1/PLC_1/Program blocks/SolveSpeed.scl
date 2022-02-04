@@ -1,0 +1,14 @@
+﻿FUNCTION "SolveSpeed" : Real
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      GeneralSpeed : Real;   // общая скорость линии
+      MotorKoef : Real;   // Коэффициент мотора
+      Correction : Real;
+   END_VAR
+
+
+BEGIN
+	#SolveSpeed := #GeneralSpeed * #MotorKoef + #Correction;
+END_FUNCTION
+

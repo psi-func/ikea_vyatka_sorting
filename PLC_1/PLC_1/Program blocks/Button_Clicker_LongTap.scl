@@ -1,0 +1,42 @@
+﻿FUNCTION_BLOCK "Button_Clicker_LongTap"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      Button_Sig : Bool;   //  сигнал с кнопки
+      set_Trembling_Time : Time;   //  время на дребезг контактов
+      set_LongTapFixation_Time : Time;   //  время ожидания долгого тапа
+   END_VAR
+
+   VAR_OUTPUT 
+      CMD_ON : Bool;   //  сигнал включения
+      CMD_Double : Bool;   // сигнал двойного клика
+      CMD_Triple : Bool;   // сигнал тройного клика
+      CMD_LongTap : Bool;   //  сигнал долго нажатия
+   END_VAR
+
+   VAR 
+      Timer_LongTap_old : Bool;   //  сигнал с таймера на прошлой итерации
+      ClickCounter : Int;   // счет кликов кнопки
+      LongTap_Timer {InstructionName := 'TON'; LibVersion := '1.0'} : TON;   //  таймер долгого нажатия
+   END_VAR
+
+
+BEGIN
+	#CMD_ON := FALSE;
+	#CMD_LongTap := False;
+	
+	IF (#LongTap_Timer.ET > #set_Trembling_Time AND NOT #Button_Sig) THEN
+	    #CMD_ON := TRUE;
+	END_IF;
+	
+	#LongTap_Timer(IN := #Button_Sig,
+	               PT := #set_LongTapFixation_Time
+	);
+	
+	IF (#LongTap_Timer.Q AND NOT #Timer_LongTap_old) THEN
+	    #CMD_LongTap := TRUE;
+	END_IF;
+	
+	#Timer_LongTap_old := #LongTap_Timer.Q;
+END_FUNCTION_BLOCK
+

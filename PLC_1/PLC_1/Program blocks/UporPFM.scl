@@ -1,0 +1,203 @@
+﻿FUNCTION_BLOCK "UporPFM"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      firstWheel : Bool;
+      secondWheel : Bool;
+      boardSensorClose : Bool;   // сигнал о наличии доски под забором
+      boardSensorFar : Bool;
+      readyStartPacket : Bool;   // сигнал начала задания
+      stopTask : Bool;   // бит на окончание задания (дособрать последний слой)
+      NoChessLayout : Bool;   // не нужна раскатка
+      MuchBoards : Bool;   // кнопка набора ковра
+      ResetFaults : Bool;   // сброс ошибок
+      Correcting : Bool;
+      CorrectCounters : Bool;   // сброс счета
+      CorrectedWheel : Bool;
+      BoardsInLay : Int;   // досок в слое
+      Length : Int;   // длина доски
+      CorrectedCounter : Int;
+   END_VAR
+
+   VAR_OUTPUT 
+      CMD_Up : Bool;
+      CMD_Down : Bool;
+      CommonAlarm : Bool;   // общая ошибка на упорах
+      AlarmGidra : Bool;   // Ошибка сработки упоров
+      AlarmWarpingBoard : Bool;   // Ошибка перекоса доски
+   END_VAR
+
+   VAR 
+      firstWheel_old : Bool;
+      secondWheel_old : Bool;
+      muchBoards_old : Bool;
+      boardSensor_old : Bool;
+      currentSelectedWheel : Bool;
+      needWork : Bool;
+      haveTask : Bool;
+      Skip : Bool;
+      DenyAlarm : Bool;
+      helper : Bool;
+      "Counter" : Int;
+      notAwaitableBoard_timer {InstructionName := 'TON'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TON;
+      notStableLayer_timer {InstructionName := 'TOF'; LibVersion := '1.0'} : TOF;
+      StableLayer_timer {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+   END_VAR
+
+   VAR_TEMP 
+      currentWheel_sig : Bool;
+      currentWheel_sig_old : Bool;
+      NoNeedSkip : Bool;
+      boardSignal : Bool;   // обобщенный сигнал с датчиков доски
+   END_VAR
+
+
+BEGIN
+	//корректировка счета и колеса
+	//
+	IF (#CorrectCounters) THEN
+	    IF (#CorrectedCounter = #BoardsInLay) THEN
+	        #Counter := 0;
+	    ELSE
+	        #Counter := #CorrectedCounter;
+	    END_IF;
+	    #currentSelectedWheel := #CorrectedWheel;
+	END_IF;
+	
+	//выбор сигнала по колесу
+	IF (#currentSelectedWheel) THEN
+	    #currentWheel_sig := #firstWheel;
+	    #currentWheel_sig_old := #firstWheel_old;
+	ELSE
+	    #currentWheel_sig := #secondWheel;
+	    #currentWheel_sig_old := #secondWheel_old;
+	END_IF;
+	
+	// новое задание (новый пакет)
+	IF (NOT #haveTask AND #readyStartPacket) THEN
+	    #haveTask := true;
+	    #Skip := FALSE;
+	END_IF;
+	
+	// пока так, позже добавлю логику и фильтры
+	// Сигнал наличия доски
+	#boardSignal := #boardSensorClose AND (#boardSensorFar OR #Length < 3000);
+	
+	
+	// начинаем работу упоров либо если опер нажал кнопочку, либо если работаем без раскатки, там пофиг
+	#needWork := (#needWork OR (#MuchBoards AND NOT #muchBoards_old)) AND NOT #Correcting;
+	
+	//Надо делать двойную дырку
+	//
+	#NoNeedSkip := NOT #Skip OR #NoChessLayout;
+	
+	#notStableLayer_timer(IN := #boardSignal,
+	                      PT := T#400ms);
+	
+	#StableLayer_timer(IN:=#boardSignal,
+	                   PT:=T#150ms);
+	
+	#notAwaitableBoard_timer(IN := #boardSensorClose OR #boardSensorClose,
+	                         PT := T#150ms);
+	
+	IF (#ResetFaults) THEN
+	    #AlarmGidra := FALSE;
+	    #AlarmWarpingBoard := FALSE;
+	
+	END_IF;
+	
+	
+	IF (#needWork AND #haveTask) THEN
+	    // всегда смотрим за стабильностью сигнала с датчиков досок, он должен быть постоянным
+	    //
+	    IF (#DenyAlarm) THEN
+	        IF (#boardSignal) THEN
+	            #DenyAlarm := FALSE;
+	        END_IF;
+	    ELSIF (NOT #notStableLayer_timer.Q AND #CMD_Down) THEN
+	        // поднимаем упоры и кричим о том что что-то не так
+	        // 
+	        #CMD_Up := True;
+	        #CMD_Down := FALSE;
+	        
+	        #needWork := FALSE;
+	        
+	        #AlarmWarpingBoard := #boardSensorClose OR #boardSensorFar;
+	        
+	    END_IF;
+	    
+	    // По переднему фронту текущего сигнала опускаем упоры, даем шанс доске упасть в нужное место
+	    IF (#currentWheel_sig AND NOT #currentWheel_sig_old AND #NoNeedSkip) THEN
+	        // Запрещаю выброс аварии если до этого были вверху
+	        // 
+	        #DenyAlarm := #CMD_Up;
+	        
+	        #CMD_Down := TRUE;
+	        #CMD_Up := FALSE;
+	            
+	            
+	    END_IF;
+	    
+	    // По заднему фронту 
+	    IF (NOT #currentWheel_sig AND #currentWheel_sig_old) THEN
+	        IF (#NoNeedSkip) THEN
+	            IF (#StableLayer_timer.Q) THEN
+	                // Если сигнал с датчика доски есть, считаем, что заберем с текущего колеса доску и можно укладывать на следующую
+	                // Соответсвенно ничего не делаем с упорами, все гуд
+	                #currentSelectedWheel := NOT #currentSelectedWheel;
+	                
+	                #Counter := #Counter + 1;
+	                
+	                IF (#Counter = #BoardsInLay) THEN
+	                    // Если досчитали доски до нужного числа и нужен пробел, надо еще раз поменять колесо и поднять таки упоры
+	                    // 
+	                    #Skip := #BoardsInLay MOD 2 <> 0;
+	                    
+	                    IF (NOT #Skip OR #NoChessLayout) THEN
+	                        
+	                        #currentSelectedWheel := NOT #currentSelectedWheel;
+	                    END_IF;
+	                    
+	                    #CMD_Up := True;
+	                    #CMD_Down := FALSE;
+	                    
+	                    #Counter := 0;
+	                    
+	                    // Если приказали дособирать этот слой и встать, так и делаем
+	                    // 
+	                    #haveTask := NOT #stopTask;
+	                END_IF;
+	                
+	            ELSE
+	                // Доски не было, поднимаем упоры, должны уложить на наше колесо
+	                #CMD_Up := True;
+	                #CMD_Down := FALSE;
+	                
+	                // снова ждем хорошего ковра перед упорами
+	                #needWork := FALSE;
+	            END_IF;
+	        ELSE
+	            #Skip := FALSE;
+	        END_IF;
+	    END_IF;
+	ELSE
+	    // если не работаем, поднимаем упоры и ждем!
+	    // 
+	    
+	    IF (#notAwaitableBoard_timer.Q AND NOT #boardSensor_old) THEN
+	        #AlarmGidra := TRUE;
+	    END_IF;
+	    
+	    #CMD_Up := True;
+	    #CMD_Down := FALSE;
+	END_IF;
+	
+	
+	#CommonAlarm := #AlarmGidra OR #AlarmWarpingBoard;
+	    
+	#firstWheel_old := #firstWheel;
+	#secondWheel_old := #secondWheel;
+	#muchBoards_old := #MuchBoards;
+	#boardSensor_old := #notAwaitableBoard_timer.Q;
+END_FUNCTION_BLOCK
+

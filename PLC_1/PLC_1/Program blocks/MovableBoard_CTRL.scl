@@ -1,0 +1,110 @@
+﻿FUNCTION_BLOCK "MovableBoard_CTRL"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      BoardBase : Bool;   //   сигнал с дальнего концевика борта (знаем его позицию точно)
+      ModeChanged : Bool;   //  был изменен режим
+      Reset : Bool;   //   сбросить базу и позицию
+      EncPos : Byte;   //   показания энкодера (код Грея)
+      SetPos : Int;   //   абсолютное положение борта в импульсах
+   END_VAR
+
+   VAR_OUTPUT 
+      CMD_Fwd : Bool;   //   команда на движение вперед
+      CMD_Bwd : Bool;   //   команда на движение назад
+      CMD_UP : Bool;   //   команда опустить борт
+      CMD_DOWN : Bool;   //   команда поднять борт
+      AutoMode : Bool;
+      ResetVirtualPos : Bool;
+      Position : Int;
+   END_VAR
+
+   VAR 
+      DefinitionTag : Bool;   //   была определена позиция (база борта)
+      ChangingPos : Bool;   //  в состоянии изменения позиции
+      ShutUpAuto : Bool;   //  позицию изменил
+      startOffset : Int;   //  начальный сдвиг
+      curMicroPos : Int;
+      curMicroPos_old : Int;
+      curMacroPos : Int;
+   END_VAR
+
+
+BEGIN
+	#ResetVirtualPos := FALSE;
+	
+	// условия для учета "перескоков" абсолютного энкодера на 256 позиций
+	#curMicroPos := "Rev_G"(#EncPos);
+	IF (#curMicroPos_old - #curMicroPos > 200) THEN
+	    #curMacroPos := #curMacroPos + 1;
+	END_IF;
+	IF (#curMicroPos - #curMicroPos_old > 200) THEN
+	    #curMacroPos := #curMacroPos - 1;
+	END_IF;
+	
+	
+	// Итоговое положение
+	#Position := 256 * #curMacroPos + #curMicroPos - #startOffset;
+	
+	// Сброс базы
+	IF #Reset THEN
+	    #DefinitionTag := False;
+	    #ChangingPos := FALSE;
+	    #CMD_UP := FALSE;
+	    #CMD_DOWN := FALSE;
+	    
+	    #ResetVirtualPos := TRUE;
+	END_IF;
+	
+	// Доведем борт до концевика для уверенности в базе (нулевой точке)
+	IF NOT #DefinitionTag THEN
+	    #AutoMode := TRUE;
+	    #CMD_UP := TRUE;
+	    #CMD_DOWN := FALSE;
+	    #CMD_Fwd := TRUE;
+	    #CMD_Bwd := FALSE;
+	    // Если дошли до дальнего концевика, знаем где мы, обнулим счетчик оборотов
+	    IF (#BoardBase) THEN
+	        #DefinitionTag := TRUE;
+	        #ShutUpAuto := TRUE;
+	        #curMacroPos := 0;
+	        #startOffset := #curMicroPos;
+	    END_IF;
+	END_IF;
+	
+	
+	IF (#ShutUpAuto) THEN
+	    #AutoMode := False;
+	    #ShutUpAuto := FALSE;
+	END_IF;
+	
+	
+	#ChangingPos := (#ChangingPos OR #ModeChanged);
+	
+	IF #ChangingPos AND #DefinitionTag THEN
+	    #AutoMode := True;
+	    #CMD_UP := True;
+	    #CMD_DOWN := False;
+	    
+	    IF (ABS_INT(#Position - #SetPos) < 12) THEN
+	        #ChangingPos := FALSE;
+	        #ShutUpAuto := TRUE;
+	        #CMD_UP := #SetPos < 30;
+	        #CMD_DOWN := NOT #CMD_UP;
+	        #CMD_Bwd := FALSE;
+	        #CMD_Fwd := FALSE;
+	        
+	    ELSIF #Position > #SetPos THEN
+	        #CMD_Bwd := FALSE;
+	        #CMD_Fwd := TRUE;
+	        
+	    ELSE
+	        #CMD_Bwd := TRUE;
+	        #CMD_Fwd := FALSE;
+	    END_IF;
+	END_IF;
+	
+	
+	#curMicroPos_old := #curMicroPos;
+END_FUNCTION_BLOCK
+

@@ -1,0 +1,20 @@
+﻿FUNCTION "SolveLinearDelay" : Time
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      LinearParam : Int;   // линейный параметр
+      Koef : Real;   // коэффициент k
+      Offset : Int;   // коэффициент сдвига b
+   END_VAR
+
+   VAR_TEMP 
+      Delay_in_ms : Real;
+   END_VAR
+
+
+BEGIN
+	#Delay_in_ms := INT_TO_REAL(#LinearParam);
+	
+	#SolveLinearDelay := DINT_TO_TIME(TRUNC_DINT(#Koef * #Delay_in_ms) + #Offset);
+END_FUNCTION
+

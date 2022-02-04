@@ -1,0 +1,17 @@
+﻿FUNCTION "GetGeneralSpeed" : Real
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      GS_from_Server : Int;
+   END_VAR
+
+
+BEGIN
+	IF (#GS_from_Server < 10.0) THEN
+	    #GetGeneralSpeed := 10.0;
+	ELSE
+	    #GetGeneralSpeed := INT_TO_REAL(#GS_from_Server);
+	END_IF;
+	
+END_FUNCTION
+

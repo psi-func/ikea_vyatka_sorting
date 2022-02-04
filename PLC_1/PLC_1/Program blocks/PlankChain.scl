@@ -1,0 +1,16 @@
+﻿FUNCTION "PlankChain" : "PlankOnChain"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT 
+      Chain : Bool;
+      Empty : Bool;
+      Length : Int;
+   END_VAR
+
+
+BEGIN
+	#PlankChain.Chain := #Chain;
+	#PlankChain.NoEmpty := NOT #Empty;
+	#PlankChain.Length := #Length;
+END_FUNCTION
+
