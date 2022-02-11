@@ -375,8 +375,8 @@ BEGIN
 	        #Alarm_List[79] := "IM_PFM".M_232_Elevator_PFM.notOff;
 	        #Alarm_List[80] := "IM_PFM".M_232_Elevator_PFM.wrong_state;
 	        #Alarm_List[81] := "IM_PFM".M_232_Elevator_PFM.wrong_CMD;
-	        #Alarm_List[82] := "IM_PFM".M_317_Gasket_Carousel.notON;
-	        #Alarm_List[83] := "IM_PFM".M_317_Gasket_Carousel.notOFF;
+	        #Alarm_List[82] := "IM_PFM".M_317_Carousel.alm_not_on;
+	        #Alarm_List[83] := "IM_PFM".M_317_Carousel.alm_not_off OR "IM_PFM".M_317_Carousel.alm_wrong_cmd;
 	        #Alarm_List[84] := "HS".Gasket_Ramp.notUp;
 	        #Alarm_List[85] := "HS".Gasket_Ramp.notMid;
 	        #Alarm_List[86] := "HS".Gasket_Ramp.notDn;

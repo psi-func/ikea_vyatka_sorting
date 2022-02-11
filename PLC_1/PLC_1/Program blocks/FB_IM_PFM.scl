@@ -4,8 +4,12 @@ VERSION : 0.1
    VAR 
       M_233_Fork_PFM { S7_SetPoint := 'False'} : "FB_IM2x4";   // Вилы основной ПФМ
       M_232_Elevator_PFM : "FB_IM2x2S";   // Лифт основной ПФМ
-      M_317_Gasket_Carousel : "FB_IM2x1";   // Карусель прокладок
+      M_317_Carousel : "drive_CB_2x1";
       Elevator_brake_timer {InstructionName := 'TON'; LibVersion := '1.0'} : TON;
+   END_VAR
+
+   VAR_TEMP 
+      Sert : Word;
    END_VAR
 
 
@@ -101,7 +105,7 @@ BEGIN
 	
 	REGION M_317
 	    
-	    #M_317_Gasket_Carousel(OnSig:="DGI".F317K1 AND "DGI".K1_317U1,
+	    (* #M_317_Gasket_Carousel(OnSig:="DGI".F317K1 AND "DGI".K1_317U1,
 	                           OnCom:= ("FB_Gasket_Carousel_DB".Carousel_FWD AND (NOT "B18.0")) OR "FB_Gasket_Carousel_DB".Carousel_BWD,
 	                           Ready:="ALG".Ready_Sorting,
 	                           Reset:="DGI".S76_2 OR "ALG".Reset,
@@ -138,6 +142,37 @@ BEGIN
 	    "K1-317U2" := #M_317_Gasket_Carousel.onOutFWD OR #M_317_Gasket_Carousel.onOutBWD;
 	    "K1-317X1.1" := #M_317_Gasket_Carousel.onOutFWD OR #M_317_Gasket_Carousel.onOutBWD;
 	    "K1-317U2.2" := #M_317_Gasket_Carousel.onOutBWD;
+	    
+	    *)
+	    
+	    #M_317_Carousel(i_ready := "ALG".Ready_Sorting,
+	                    i_feedback := "DGI".F317K1 AND "DGI".K1_317U1,
+	                    i_reset := "DGI".S76_2 OR "ALG".Reset,
+	                    i_au_req := "ALG".Auto_Sorting,
+	                    cmd_fwd := "FB_Gasket_Carousel_DB".Carousel_FWD AND NOT "B18.0",
+	                    cmd_bwd := "FB_Gasket_Carousel_DB".Carousel_BWD,
+	                    i_mu_req := ("FB_Gasket_Carousel_DB".s_man_cntl AND "ALG".Auto_Sorting) OR NOT ("ALG".Auto_Sorting OR "ServDB".M_317.BtnDU),
+	                    mu_fwd := "DGI".S84_1,
+	                    mu_bwd := "DGI".E84_2,
+	                    i_du_req := "ServDB".M_317.BtnDU,
+	                    du_fwd := "ServDB".M_317.BtnFwd,
+	                    du_bwd := "ServDB".M_317.BtnBwd,
+	                    i_speed_au := "FB_Gasket_Carousel_DB".Carousel_Speed,
+	                    i_speed_mu_du := 7.0,
+	                    ////////////////////////////////
+	                    o_au => "ServDB".M_317.AU,
+	                    o_du => "ServDB".M_317.DU,
+	                    o_mu => "ServDB".M_317.MU,
+	                    alarm => "ServDB".M_317.Alarm,
+	                    o_fwd => "ServDB".M_317.CMD_ON,
+	                    o_bwd => "ServDB".M_317.CMD_OFF);
+	    
+	    "K1-317X1" := "ALG".Ready_Sorting;
+	    "K1-317U2" := #M_317_Carousel.o_fwd OR #M_317_Carousel.o_bwd;
+	    "K1-317X1.1" := #M_317_Carousel.o_brake;
+	    "K1-317U2.2" := #M_317_Carousel.o_bwd;
+	    
+	    #Sert := UNSCALE(IN := #M_317_Carousel.o_speed_vfd, HI_LIM := 50.0, LO_LIM := -50.0, BIPOLAR := TRUE, OUT => "K1-317U":P);
 	    
 	    
 	    
