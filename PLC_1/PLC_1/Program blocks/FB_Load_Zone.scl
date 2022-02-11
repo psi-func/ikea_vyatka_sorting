@@ -78,7 +78,7 @@ BEGIN
 	    "H76.3" := "H78.0" := #auto_mode_trigger;
 	    
 	    // Auto SIGNAL
-	    "ALG".Auto_loading := #auto_mode_trigger AND NOT "Беопасность_DB".ProhibitionLoading;
+	    "ALG".Auto_loading := #auto_mode_trigger AND NOT "Безопасность_DB".ProhibitionLoading;
 	    
 	END_REGION
 	

@@ -3,14 +3,13 @@
 VERSION : 0.1
    VAR_INPUT 
       make_layer : Bool;
+      may_release : Bool;
       full_reset : Bool;
       pause : Bool;
       try_unpause : Bool;
       gasket_sensor : Bool;
       hook_sensor : Bool;
       last_hook_sensor : Bool;
-      ramp_upper_sensor : Bool;
-      gasket_cup_closed_sensor : Bool;
       no_ramp_flag : Bool;
       enable_double_schema : Bool;
       layer_num : Int;
@@ -43,6 +42,7 @@ VERSION : 0.1
       ALM_SensLastHook : Bool;
       s_man_cntl : Bool;
       s_paused : Bool;
+      s_reset_encoder : Bool;
       Carousel_Speed : Real;
    END_VAR
 
@@ -149,6 +149,11 @@ BEGIN
 	    
 	END_REGION
 	
+	
+	REGION Reset output flags
+	    #s_reset_encoder := FALSE;
+	END_REGION
+	
 	StartAutomat:
 	CASE #_State OF
 	    #STATE_WAITING:
@@ -190,6 +195,10 @@ BEGIN
 	            #m_released := FALSE; // можно ли опускать каретку
 	            
 	            #s_max_hooks := "getMaxBit"(MAX:=#GASKET_PLACES_MAX, number:=#schema);
+	            
+	            // сбрасываем счетчик энкодера
+	            // 
+	            #s_reset_encoder := TRUE;
 	            
 	        END_IF;
 	    
@@ -332,7 +341,7 @@ BEGIN
 	        #m_released := FALSE;
 	        
 	        // если каретка приехала с закрытыми ложементами можно отъезжать
-	        IF (#ramp_upper_sensor AND #gasket_cup_closed_sensor) THEN
+	        IF ( #may_release ) THEN
 	            #_State := #STATE_RELEASE;
 	            // снапшот
 	            // 

@@ -2,7 +2,7 @@
 <Document>
   <Engineering version="V16" />
   <DocumentInfo>
-    <Created>2022-02-04T14:40:18.3912732Z</Created>
+    <Created>2022-02-11T14:39:21.3631075Z</Created>
     <ExportSetting>WithDefaults</ExportSetting>
     <InstalledProducts>
       <Product>
@@ -54,7 +54,7 @@
       <HeaderFamily />
       <HeaderName />
       <HeaderVersion>0.1</HeaderVersion>
-      <InstanceOfName>Беопасность</InstanceOfName>
+      <InstanceOfName>Безопасность</InstanceOfName>
       <InstanceOfType>FB</InstanceOfType>
       <Interface><Sections xmlns="http://www.siemens.com/automation/Openness/SW/Interface/v4">
   <Section Name="Input" />
@@ -76,7 +76,7 @@
     <Member Name="ProhibitionGasket" Datatype="Bool" Remanence="Retain"><AttributeList><BooleanAttribute Name="ExternalAccessible" SystemDefined="true">true</BooleanAttribute><BooleanAttribute Name="ExternalVisible" SystemDefined="true">true</BooleanAttribute><BooleanAttribute Name="ExternalWritable" SystemDefined="true">true</BooleanAttribute><BooleanAttribute Name="SetPoint" SystemDefined="true">false</BooleanAttribute></AttributeList></Member>
   </Section>
 </Sections></Interface>
-      <Name>Беопасность_DB</Name>
+      <Name>Безопасность_DB</Name>
       <Number>1</Number>
       <ProgrammingLanguage>DB</ProgrammingLanguage>
     </AttributeList>

@@ -16,14 +16,18 @@ VERSION : 0.1
       top_sensor : Bool;
       mid_sensor : Bool;
       low_sensor : Bool;
+      top_sensor_filter : Bool;
       QPLanksLayers : Int;
    END_VAR
 
    VAR_OUTPUT 
       carousel_full_reset : Bool;
+      sig_carousel_release_gaskets : Bool;
+      make_gasket_layer : Bool;
+      lock_forks : Bool;
+      lock_carousel : Bool;
       last_lay : Bool;
       down_working : Bool;
-      make_gasket_layer : Bool;
       ramp_not_up : Bool;
       ramp_not_down : Bool;
       CMD_On : Bool;
@@ -46,6 +50,7 @@ VERSION : 0.1
       STATE_RELEASE_GASKETS : Int := 5;
       STATE_OPENING_LODEMS : Int := 6;
       STATE_ACQUIRE_GASKETS : Int := 7;
+      STATE_WAIT_RELEASE : Int := 8;
       STATE_PUSHING_PACKET : Int := 9;
    END_VAR
 
@@ -90,9 +95,15 @@ BEGIN
 	        #CMD_Mid := TRUE;
 	        #CMD_Off := False;
 	        
+	        // блокировки механизмов
+	        #lock_forks := FALSE;
+	        #lock_carousel := FALSE;
+	        
 	        #CMD_OpenLodems := NOT #ramp_not_down;
 	        
 	        #down_working := False;
+	        
+	        #sig_carousel_release_gaskets := false;
 	        
 	        #s_lay_cmd_permission := TRUE;
 	        
@@ -106,11 +117,13 @@ BEGIN
 	        IF (#s_busy) THEN
 	            IF (#pick_gaskets AND #forks_start_sensor) THEN
 	                #_State := #STATE_RELEASE_GASKETS;
+	            #lock_forks := TRUE;
 	            END_IF;
 	        ELSE
 	            
 	            IF (#gaskets_acquire) THEN
 	                #_State := #STATE_ACQUIRE_GASKETS;
+	                #lock_carousel := TRUE;
 	            ELSE
 	                ;
 	            END_IF;
@@ -154,23 +167,53 @@ BEGIN
 	        #CMD_On := TRUE;
 	        #CMD_Mid := FALSE;
 	        #CMD_Off := False;
-	            
 	        #CMD_OpenLodems := NOT #ramp_not_down;
-	            
+	        
+	        #lock_carousel := true;
+	        
 	        #s_lay_cmd_permission := FALSE;
 	            
-	        IF (NOT #gaskets_acquire AND #gaskets_released) THEN
-	                
+	        IF (NOT #gaskets_acquire) THEN
+	            // если пропал до отдачи сигнала готовности значит был сброс или ошибка
+	            //снимаемся с задачи
+	            #_State := #STATE_AWAIT;
+	            GOTO EndAutomat;
+	        END_IF;
+	        
+	        // более надежный флаг поднятия каретки
+	        IF (#top_sensor AND #top_sensor_filter) THEN
+	            #_State := #STATE_WAIT_RELEASE;
+	            #sig_carousel_release_gaskets := TRUE;
+	        END_IF;
+	        
+	    #STATE_WAIT_RELEASE:
+	        // как точно доехали наверх можем давать сигнал карусели об отдаче прокладок
+	        #CMD_On := TRUE;
+	        #CMD_Mid := FALSE;
+	        #CMD_Off := False;
+	        #CMD_OpenLodems := FALSE;
+	        
+	        #lock_carousel := FALSE;
+	        
+	        #sig_carousel_release_gaskets := TRUE;
+	        
+	        IF (#gaskets_released) THEN
 	            #s_busy := TRUE;
 	            #layer_holded := #layer_holded + 1;
-	                
+	            
 	            // решаем, надо ли еще слой прокладок положить
 	            // TODO
 	            // 
 	            #last_lay := #layer_holded >= #QPLanksLayers - 1;
-	
+	            
 	            #_State := #STATE_AWAIT;
-	                
+	            GOTO EndAutomat;
+	        END_IF;
+	        
+	        
+	        IF (NOT #gaskets_busy) THEN
+	            #_State := #STATE_AWAIT;
+	            
 	        END_IF;
 	        
 	    #STATE_PUSHING_PACKET:

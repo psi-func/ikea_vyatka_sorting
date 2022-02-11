@@ -2,7 +2,7 @@
 <Document>
   <Engineering version="V16" />
   <DocumentInfo>
-    <Created>2022-02-04T14:40:11.2312223Z</Created>
+    <Created>2022-02-11T14:39:20.0308506Z</Created>
     <ExportSetting>WithDefaults</ExportSetting>
     <InstalledProducts>
       <Product>
@@ -250,7 +250,7 @@
     </Access>
     <Access Scope="GlobalVariable" UId="28">
       <Symbol>
-        <Component Name="Беопасность_DB" />
+        <Component Name="Безопасность_DB" />
         <Component Name="ProhibitionSorting" />
       </Symbol>
     </Access>
@@ -9367,130 +9367,143 @@
     <Access Scope="GlobalVariable" UId="30">
       <Symbol>
         <Component Name="ALG" />
-        <Component Name="AddGasketLayer" />
+        <Component Name="Auto_Sorting" />
       </Symbol>
     </Access>
     <Access Scope="GlobalVariable" UId="31">
+      <Symbol>
+        <Component Name="HS" />
+        <Component Name="Gasket_Ramp" />
+        <Component Name="Fault" />
+      </Symbol>
+    </Access>
+    <Access Scope="GlobalVariable" UId="32">
+      <Symbol>
+        <Component Name="ALG" />
+        <Component Name="AddGasketLayer" />
+      </Symbol>
+    </Access>
+    <Access Scope="GlobalVariable" UId="33">
       <Symbol>
         <Component Name="ALG" />
         <Component Name="EmptyLodems" />
       </Symbol>
     </Access>
-    <Access Scope="LocalVariable" UId="32">
+    <Access Scope="LocalVariable" UId="34">
       <Symbol>
         <Component Name="LiftDownTrig" />
-      </Symbol>
-    </Access>
-    <Access Scope="GlobalVariable" UId="33">
-      <Symbol>
-        <Component Name="FB_Gasket_Carousel_DB" />
-        <Component Name="m_acquire" />
-      </Symbol>
-    </Access>
-    <Access Scope="GlobalVariable" UId="34">
-      <Symbol>
-        <Component Name="FB_Gasket_Carousel_DB" />
-        <Component Name="m_released" />
       </Symbol>
     </Access>
     <Access Scope="GlobalVariable" UId="35">
       <Symbol>
         <Component Name="FB_Gasket_Carousel_DB" />
-        <Component Name="m_busy" />
+        <Component Name="m_acquire" />
       </Symbol>
     </Access>
-    <Access Scope="LocalVariable" UId="36">
+    <Access Scope="GlobalVariable" UId="36">
       <Symbol>
-        <Component Name="NoGasketMode" />
+        <Component Name="FB_Gasket_Carousel_DB" />
+        <Component Name="m_released" />
       </Symbol>
     </Access>
     <Access Scope="GlobalVariable" UId="37">
       <Symbol>
-        <Component Name="S14.7" />
+        <Component Name="FB_Gasket_Carousel_DB" />
+        <Component Name="m_busy" />
       </Symbol>
     </Access>
-    <Access Scope="GlobalVariable" UId="38">
+    <Access Scope="LocalVariable" UId="38">
       <Symbol>
-        <Component Name="B18.4" />
+        <Component Name="NoGasketMode" />
       </Symbol>
     </Access>
     <Access Scope="GlobalVariable" UId="39">
       <Symbol>
-        <Component Name="B18.0" />
+        <Component Name="S14.7" />
       </Symbol>
     </Access>
     <Access Scope="GlobalVariable" UId="40">
       <Symbol>
-        <Component Name="S18.2" />
+        <Component Name="B18.4" />
       </Symbol>
     </Access>
     <Access Scope="GlobalVariable" UId="41">
+      <Symbol>
+        <Component Name="B18.0" />
+      </Symbol>
+    </Access>
+    <Access Scope="GlobalVariable" UId="42">
+      <Symbol>
+        <Component Name="S18.2" />
+      </Symbol>
+    </Access>
+    <Access Scope="GlobalVariable" UId="43">
       <Symbol>
         <Component Name="DGI" />
         <Component Name="GasketRampSqueeze_timer" />
         <Component Name="Q" />
       </Symbol>
     </Access>
-    <Access Scope="GlobalVariable" UId="42">
+    <Access Scope="GlobalVariable" UId="44">
       <Symbol>
         <Component Name="DynamicLayer_CNTL_DB" />
         <Component Name="ActualMaxHeight" />
-      </Symbol>
-    </Access>
-    <Access Scope="GlobalVariable" UId="43">
-      <Symbol>
-        <Component Name="HS" />
-        <Component Name="Gasket_Ramp" />
-        <Component Name="setUp" />
-      </Symbol>
-    </Access>
-    <Access Scope="GlobalVariable" UId="44">
-      <Symbol>
-        <Component Name="HS" />
-        <Component Name="Gasket_Ramp" />
-        <Component Name="setMid" />
       </Symbol>
     </Access>
     <Access Scope="GlobalVariable" UId="45">
       <Symbol>
         <Component Name="HS" />
         <Component Name="Gasket_Ramp" />
-        <Component Name="setDn" />
+        <Component Name="setUp" />
       </Symbol>
     </Access>
     <Access Scope="GlobalVariable" UId="46">
+      <Symbol>
+        <Component Name="HS" />
+        <Component Name="Gasket_Ramp" />
+        <Component Name="setMid" />
+      </Symbol>
+    </Access>
+    <Access Scope="GlobalVariable" UId="47">
+      <Symbol>
+        <Component Name="HS" />
+        <Component Name="Gasket_Ramp" />
+        <Component Name="setDn" />
+      </Symbol>
+    </Access>
+    <Access Scope="GlobalVariable" UId="48">
       <Symbol>
         <Component Name="HS" />
         <Component Name="Gasket_Lodems" />
         <Component Name="OffCom" />
       </Symbol>
     </Access>
-    <Access Scope="GlobalVariable" UId="47">
+    <Access Scope="GlobalVariable" UId="49">
       <Symbol>
         <Component Name="FB_Ramp_DB" />
         <Component Name="CMD_OpenLodems" />
       </Symbol>
     </Access>
-    <Access Scope="GlobalVariable" UId="48">
+    <Access Scope="GlobalVariable" UId="50">
       <Symbol>
         <Component Name="Tag_95" />
       </Symbol>
     </Access>
-    <Access Scope="TypedConstant" UId="49">
+    <Access Scope="TypedConstant" UId="51">
       <Constant>
         <ConstantValue>s5t#500ms</ConstantValue>
       </Constant>
     </Access>
-    <Access Scope="GlobalVariable" UId="50">
+    <Access Scope="GlobalVariable" UId="52">
       <Symbol>
         <Component Name="HS" />
         <Component Name="Gasket_Lodems" />
         <Component Name="OnCom" />
       </Symbol>
     </Access>
-    <Call UId="51">
+    <Call UId="53">
       <CallInfo Name="DynamicLayer_CNTL" BlockType="FB">
-        <Instance Scope="GlobalVariable" UId="52">
+        <Instance Scope="GlobalVariable" UId="54">
           <Component Name="DynamicLayer_CNTL_DB" />
         </Instance>
         <Parameter Name="NewPack" Section="Input" Type="Bool" />
@@ -9502,16 +9515,20 @@
         <Parameter Name="ActualMaxHeight" Section="Output" Type="Int" />
       </CallInfo>
     </Call>
-    <Part Name="Contact" UId="53" />
-    <Part Name="Contact" UId="54">
+    <Part Name="Contact" UId="55" />
+    <Part Name="Contact" UId="56">
       <Negated Name="operand" />
     </Part>
-    <Part Name="Contact" UId="55">
+    <Part Name="Contact" UId="57">
       <Negated Name="operand" />
     </Part>
-    <Call UId="56">
+    <Part Name="Contact" UId="58" />
+    <Part Name="Contact" UId="59">
+      <Negated Name="operand" />
+    </Part>
+    <Call UId="60">
       <CallInfo Name="FB_Ramp" BlockType="FB">
-        <Instance Scope="GlobalVariable" UId="57">
+        <Instance Scope="GlobalVariable" UId="61">
           <Component Name="FB_Ramp_DB" />
         </Instance>
         <Parameter Name="add_lay" Section="Input" Type="Bool" />
@@ -9528,11 +9545,15 @@
         <Parameter Name="top_sensor" Section="Input" Type="Bool" />
         <Parameter Name="mid_sensor" Section="Input" Type="Bool" />
         <Parameter Name="low_sensor" Section="Input" Type="Bool" />
+        <Parameter Name="top_sensor_filter" Section="Input" Type="Bool" />
         <Parameter Name="QPLanksLayers" Section="Input" Type="Int" />
         <Parameter Name="carousel_full_reset" Section="Output" Type="Bool" />
+        <Parameter Name="sig_carousel_release_gaskets" Section="Output" Type="Bool" />
+        <Parameter Name="make_gasket_layer" Section="Output" Type="Bool" />
+        <Parameter Name="lock_forks" Section="Output" Type="Bool" />
+        <Parameter Name="lock_carousel" Section="Output" Type="Bool" />
         <Parameter Name="last_lay" Section="Output" Type="Bool" />
         <Parameter Name="down_working" Section="Output" Type="Bool" />
-        <Parameter Name="make_gasket_layer" Section="Output" Type="Bool" />
         <Parameter Name="ramp_not_up" Section="Output" Type="Bool" />
         <Parameter Name="ramp_not_down" Section="Output" Type="Bool" />
         <Parameter Name="CMD_On" Section="Output" Type="Bool" />
@@ -9543,212 +9564,241 @@
         <Parameter Name="layer_holded" Section="Output" Type="Int" />
       </CallInfo>
     </Call>
-    <Part Name="Contact" UId="58" />
-    <Part Name="Sd" UId="59" />
-    <Part Name="Coil" UId="60" />
+    <Part Name="Contact" UId="62" />
+    <Part Name="Sd" UId="63" />
+    <Part Name="Coil" UId="64" />
   </Parts>
   <Wires>
-    <Wire UId="73">
-      <Powerrail />
-      <NameCon UId="51" Name="en" />
-      <NameCon UId="53" Name="in" />
-      <NameCon UId="55" Name="in" />
-    </Wire>
-    <Wire UId="74">
-      <IdentCon UId="21" />
-      <NameCon UId="51" Name="NewPack" />
-    </Wire>
-    <Wire UId="75">
-      <IdentCon UId="22" />
-      <NameCon UId="51" Name="EnableDynamicLayer" />
-    </Wire>
-    <Wire UId="76">
-      <IdentCon UId="23" />
-      <NameCon UId="51" Name="NotOkSensor" />
-    </Wire>
-    <Wire UId="77">
-      <IdentCon UId="24" />
-      <NameCon UId="51" Name="PackMaxHeight" />
-    </Wire>
-    <Wire UId="78">
-      <IdentCon UId="25" />
-      <NameCon UId="51" Name="BoardsInLay" />
-    </Wire>
-    <Wire UId="79">
-      <IdentCon UId="26" />
-      <NameCon UId="51" Name="BoardsInCurrentPack" />
-    </Wire>
     <Wire UId="80">
-      <NameCon UId="51" Name="eno" />
-      <NameCon UId="56" Name="en" />
-    </Wire>
-    <Wire UId="81">
-      <NameCon UId="51" Name="ActualMaxHeight" />
-      <OpenCon UId="61" />
-    </Wire>
-    <Wire UId="82">
-      <IdentCon UId="27" />
-      <NameCon UId="53" Name="operand" />
-    </Wire>
-    <Wire UId="83">
-      <NameCon UId="53" Name="out" />
-      <NameCon UId="54" Name="in" />
-    </Wire>
-    <Wire UId="84">
-      <IdentCon UId="28" />
-      <NameCon UId="54" Name="operand" />
-    </Wire>
-    <Wire UId="85">
-      <NameCon UId="54" Name="out" />
-      <NameCon UId="56" Name="new_packet" />
-    </Wire>
-    <Wire UId="86">
-      <IdentCon UId="29" />
-      <NameCon UId="55" Name="operand" />
-    </Wire>
-    <Wire UId="87">
-      <NameCon UId="55" Name="out" />
-      <NameCon UId="56" Name="pick_gaskets" />
-    </Wire>
-    <Wire UId="88">
-      <IdentCon UId="30" />
-      <NameCon UId="56" Name="add_lay" />
-    </Wire>
-    <Wire UId="89">
-      <IdentCon UId="31" />
-      <NameCon UId="56" Name="to_empty" />
-    </Wire>
-    <Wire UId="90">
-      <IdentCon UId="32" />
-      <NameCon UId="56" Name="push_packet" />
-    </Wire>
-    <Wire UId="91">
-      <IdentCon UId="33" />
-      <NameCon UId="56" Name="gaskets_acquire" />
-    </Wire>
-    <Wire UId="92">
-      <IdentCon UId="34" />
-      <NameCon UId="56" Name="gaskets_released" />
-    </Wire>
-    <Wire UId="93">
-      <IdentCon UId="35" />
-      <NameCon UId="56" Name="gaskets_busy" />
-    </Wire>
-    <Wire UId="94">
-      <IdentCon UId="36" />
-      <NameCon UId="56" Name="mode_no_gasket" />
-    </Wire>
-    <Wire UId="95">
-      <IdentCon UId="37" />
-      <NameCon UId="56" Name="forks_start_sensor" />
-    </Wire>
-    <Wire UId="96">
-      <IdentCon UId="38" />
-      <NameCon UId="56" Name="open_lodems_sensor" />
-    </Wire>
-    <Wire UId="97">
-      <IdentCon UId="39" />
-      <NameCon UId="56" Name="top_sensor" />
-    </Wire>
-    <Wire UId="98">
-      <IdentCon UId="40" />
-      <NameCon UId="56" Name="mid_sensor" />
-    </Wire>
-    <Wire UId="99">
-      <IdentCon UId="41" />
-      <NameCon UId="56" Name="low_sensor" />
-    </Wire>
-    <Wire UId="100">
-      <IdentCon UId="42" />
-      <NameCon UId="56" Name="QPLanksLayers" />
-    </Wire>
-    <Wire UId="101">
-      <NameCon UId="56" Name="eno" />
+      <Powerrail />
+      <NameCon UId="53" Name="en" />
+      <NameCon UId="55" Name="in" />
+      <NameCon UId="57" Name="in" />
       <NameCon UId="58" Name="in" />
     </Wire>
-    <Wire UId="102">
-      <NameCon UId="56" Name="carousel_full_reset" />
-      <OpenCon UId="62" />
+    <Wire UId="81">
+      <IdentCon UId="21" />
+      <NameCon UId="53" Name="NewPack" />
     </Wire>
-    <Wire UId="103">
-      <NameCon UId="56" Name="last_lay" />
-      <OpenCon UId="63" />
+    <Wire UId="82">
+      <IdentCon UId="22" />
+      <NameCon UId="53" Name="EnableDynamicLayer" />
     </Wire>
-    <Wire UId="104">
-      <NameCon UId="56" Name="down_working" />
-      <OpenCon UId="64" />
+    <Wire UId="83">
+      <IdentCon UId="23" />
+      <NameCon UId="53" Name="NotOkSensor" />
     </Wire>
-    <Wire UId="105">
-      <NameCon UId="56" Name="make_gasket_layer" />
+    <Wire UId="84">
+      <IdentCon UId="24" />
+      <NameCon UId="53" Name="PackMaxHeight" />
+    </Wire>
+    <Wire UId="85">
+      <IdentCon UId="25" />
+      <NameCon UId="53" Name="BoardsInLay" />
+    </Wire>
+    <Wire UId="86">
+      <IdentCon UId="26" />
+      <NameCon UId="53" Name="BoardsInCurrentPack" />
+    </Wire>
+    <Wire UId="87">
+      <NameCon UId="53" Name="eno" />
+      <NameCon UId="60" Name="en" />
+    </Wire>
+    <Wire UId="88">
+      <NameCon UId="53" Name="ActualMaxHeight" />
       <OpenCon UId="65" />
     </Wire>
-    <Wire UId="106">
-      <NameCon UId="56" Name="ramp_not_up" />
-      <OpenCon UId="66" />
+    <Wire UId="89">
+      <IdentCon UId="27" />
+      <NameCon UId="55" Name="operand" />
     </Wire>
-    <Wire UId="107">
-      <NameCon UId="56" Name="ramp_not_down" />
-      <OpenCon UId="67" />
+    <Wire UId="90">
+      <NameCon UId="55" Name="out" />
+      <NameCon UId="56" Name="in" />
     </Wire>
-    <Wire UId="108">
-      <NameCon UId="56" Name="CMD_On" />
-      <IdentCon UId="43" />
+    <Wire UId="91">
+      <IdentCon UId="28" />
+      <NameCon UId="56" Name="operand" />
     </Wire>
-    <Wire UId="109">
-      <NameCon UId="56" Name="CMD_Mid" />
-      <IdentCon UId="44" />
+    <Wire UId="92">
+      <NameCon UId="56" Name="out" />
+      <NameCon UId="60" Name="new_packet" />
     </Wire>
-    <Wire UId="110">
-      <NameCon UId="56" Name="CMD_Off" />
-      <IdentCon UId="45" />
+    <Wire UId="93">
+      <IdentCon UId="29" />
+      <NameCon UId="57" Name="operand" />
     </Wire>
-    <Wire UId="111">
-      <NameCon UId="56" Name="CMD_OpenLodems" />
-      <OpenCon UId="68" />
+    <Wire UId="94">
+      <NameCon UId="57" Name="out" />
+      <NameCon UId="60" Name="pick_gaskets" />
     </Wire>
-    <Wire UId="112">
-      <NameCon UId="56" Name="CMD_CloseLodems" />
-      <IdentCon UId="46" />
-    </Wire>
-    <Wire UId="113">
-      <NameCon UId="56" Name="layer_holded" />
-      <OpenCon UId="69" />
-    </Wire>
-    <Wire UId="114">
-      <IdentCon UId="47" />
+    <Wire UId="95">
+      <IdentCon UId="30" />
       <NameCon UId="58" Name="operand" />
     </Wire>
-    <Wire UId="115">
+    <Wire UId="96">
       <NameCon UId="58" Name="out" />
-      <NameCon UId="59" Name="s" />
+      <NameCon UId="59" Name="in" />
+    </Wire>
+    <Wire UId="97">
+      <IdentCon UId="31" />
+      <NameCon UId="59" Name="operand" />
+    </Wire>
+    <Wire UId="98">
+      <NameCon UId="59" Name="out" />
+      <NameCon UId="60" Name="top_sensor_filter" />
+    </Wire>
+    <Wire UId="99">
+      <IdentCon UId="32" />
+      <NameCon UId="60" Name="add_lay" />
+    </Wire>
+    <Wire UId="100">
+      <IdentCon UId="33" />
+      <NameCon UId="60" Name="to_empty" />
+    </Wire>
+    <Wire UId="101">
+      <IdentCon UId="34" />
+      <NameCon UId="60" Name="push_packet" />
+    </Wire>
+    <Wire UId="102">
+      <IdentCon UId="35" />
+      <NameCon UId="60" Name="gaskets_acquire" />
+    </Wire>
+    <Wire UId="103">
+      <IdentCon UId="36" />
+      <NameCon UId="60" Name="gaskets_released" />
+    </Wire>
+    <Wire UId="104">
+      <IdentCon UId="37" />
+      <NameCon UId="60" Name="gaskets_busy" />
+    </Wire>
+    <Wire UId="105">
+      <IdentCon UId="38" />
+      <NameCon UId="60" Name="mode_no_gasket" />
+    </Wire>
+    <Wire UId="106">
+      <IdentCon UId="39" />
+      <NameCon UId="60" Name="forks_start_sensor" />
+    </Wire>
+    <Wire UId="107">
+      <IdentCon UId="40" />
+      <NameCon UId="60" Name="open_lodems_sensor" />
+    </Wire>
+    <Wire UId="108">
+      <IdentCon UId="41" />
+      <NameCon UId="60" Name="top_sensor" />
+    </Wire>
+    <Wire UId="109">
+      <IdentCon UId="42" />
+      <NameCon UId="60" Name="mid_sensor" />
+    </Wire>
+    <Wire UId="110">
+      <IdentCon UId="43" />
+      <NameCon UId="60" Name="low_sensor" />
+    </Wire>
+    <Wire UId="111">
+      <IdentCon UId="44" />
+      <NameCon UId="60" Name="QPLanksLayers" />
+    </Wire>
+    <Wire UId="112">
+      <NameCon UId="60" Name="eno" />
+      <NameCon UId="62" Name="in" />
+    </Wire>
+    <Wire UId="113">
+      <NameCon UId="60" Name="carousel_full_reset" />
+      <OpenCon UId="66" />
+    </Wire>
+    <Wire UId="114">
+      <NameCon UId="60" Name="sig_carousel_release_gaskets" />
+      <OpenCon UId="67" />
+    </Wire>
+    <Wire UId="115">
+      <NameCon UId="60" Name="make_gasket_layer" />
+      <OpenCon UId="68" />
     </Wire>
     <Wire UId="116">
-      <IdentCon UId="49" />
-      <NameCon UId="59" Name="tv" />
+      <NameCon UId="60" Name="lock_forks" />
+      <OpenCon UId="69" />
     </Wire>
     <Wire UId="117">
+      <NameCon UId="60" Name="lock_carousel" />
       <OpenCon UId="70" />
-      <NameCon UId="59" Name="r" />
     </Wire>
     <Wire UId="118">
-      <IdentCon UId="48" />
-      <NameCon UId="59" Name="timer" />
-    </Wire>
-    <Wire UId="119">
-      <NameCon UId="59" Name="q" />
-      <NameCon UId="60" Name="in" />
-    </Wire>
-    <Wire UId="120">
-      <NameCon UId="59" Name="rt" />
+      <NameCon UId="60" Name="last_lay" />
       <OpenCon UId="71" />
     </Wire>
-    <Wire UId="121">
-      <NameCon UId="59" Name="rtbcd" />
+    <Wire UId="119">
+      <NameCon UId="60" Name="down_working" />
       <OpenCon UId="72" />
     </Wire>
+    <Wire UId="120">
+      <NameCon UId="60" Name="ramp_not_up" />
+      <OpenCon UId="73" />
+    </Wire>
+    <Wire UId="121">
+      <NameCon UId="60" Name="ramp_not_down" />
+      <OpenCon UId="74" />
+    </Wire>
     <Wire UId="122">
+      <NameCon UId="60" Name="CMD_On" />
+      <IdentCon UId="45" />
+    </Wire>
+    <Wire UId="123">
+      <NameCon UId="60" Name="CMD_Mid" />
+      <IdentCon UId="46" />
+    </Wire>
+    <Wire UId="124">
+      <NameCon UId="60" Name="CMD_Off" />
+      <IdentCon UId="47" />
+    </Wire>
+    <Wire UId="125">
+      <NameCon UId="60" Name="CMD_OpenLodems" />
+      <OpenCon UId="75" />
+    </Wire>
+    <Wire UId="126">
+      <NameCon UId="60" Name="CMD_CloseLodems" />
+      <IdentCon UId="48" />
+    </Wire>
+    <Wire UId="127">
+      <NameCon UId="60" Name="layer_holded" />
+      <OpenCon UId="76" />
+    </Wire>
+    <Wire UId="128">
+      <IdentCon UId="49" />
+      <NameCon UId="62" Name="operand" />
+    </Wire>
+    <Wire UId="129">
+      <NameCon UId="62" Name="out" />
+      <NameCon UId="63" Name="s" />
+    </Wire>
+    <Wire UId="130">
+      <IdentCon UId="51" />
+      <NameCon UId="63" Name="tv" />
+    </Wire>
+    <Wire UId="131">
+      <OpenCon UId="77" />
+      <NameCon UId="63" Name="r" />
+    </Wire>
+    <Wire UId="132">
       <IdentCon UId="50" />
-      <NameCon UId="60" Name="operand" />
+      <NameCon UId="63" Name="timer" />
+    </Wire>
+    <Wire UId="133">
+      <NameCon UId="63" Name="q" />
+      <NameCon UId="64" Name="in" />
+    </Wire>
+    <Wire UId="134">
+      <NameCon UId="63" Name="rt" />
+      <OpenCon UId="78" />
+    </Wire>
+    <Wire UId="135">
+      <NameCon UId="63" Name="rtbcd" />
+      <OpenCon UId="79" />
+    </Wire>
+    <Wire UId="136">
+      <IdentCon UId="52" />
+      <NameCon UId="64" Name="operand" />
     </Wire>
   </Wires>
 </FlgNet></NetworkSource>

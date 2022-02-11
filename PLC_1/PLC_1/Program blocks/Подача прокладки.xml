@@ -2,7 +2,7 @@
 <Document>
   <Engineering version="V16" />
   <DocumentInfo>
-    <Created>2022-02-04T14:40:10.4461478Z</Created>
+    <Created>2022-02-11T14:39:19.6022167Z</Created>
     <ExportSetting>WithDefaults</ExportSetting>
     <InstalledProducts>
       <Product>
@@ -899,7 +899,7 @@
     </Access>
     <Access Scope="GlobalVariable" UId="27">
       <Symbol>
-        <Component Name="Беопасность_DB" />
+        <Component Name="Безопасность_DB" />
         <Component Name="ProhibitionGasket" />
       </Symbol>
     </Access>

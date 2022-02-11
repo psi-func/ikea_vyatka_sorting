@@ -2,7 +2,7 @@
 <Document>
   <Engineering version="V16" />
   <DocumentInfo>
-    <Created>2022-02-04T14:40:18.604814Z</Created>
+    <Created>2022-02-11T14:39:21.4185203Z</Created>
     <ExportSetting>WithDefaults</ExportSetting>
     <InstalledProducts>
       <Product>
@@ -89,7 +89,7 @@
     <Member Name="Lay_counter" Datatype="&quot;Adder&quot;" Remanence="Retain"><AttributeList><BooleanAttribute Name="ExternalAccessible" SystemDefined="true">true</BooleanAttribute><BooleanAttribute Name="ExternalVisible" SystemDefined="true">true</BooleanAttribute><BooleanAttribute Name="ExternalWritable" SystemDefined="true">true</BooleanAttribute><BooleanAttribute Name="SetPoint" SystemDefined="true">false</BooleanAttribute></AttributeList><Sections><Section Name="Input"><Member Name="Signal" Datatype="Bool" /><Member Name="Reset" Datatype="Bool" /><Member Name="PT" Datatype="Int" /></Section><Section Name="Output" /><Section Name="InOut"><Member Name="Count" Datatype="Int" /></Section><Section Name="Static"><Member Name="Signal_old" Datatype="Bool" /></Section></Sections></Member>
   </Section>
 </Sections></Interface>
-      <Name>ПФМ Брака_DB_1</Name>
+      <Name>ПФМ Брака_DB</Name>
       <Number>8</Number>
       <ProgrammingLanguage>DB</ProgrammingLanguage>
     </AttributeList>

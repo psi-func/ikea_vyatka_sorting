@@ -228,7 +228,7 @@ BEGIN
 	   
 	    //
 	    IF (#PackBrakParamChanged) THEN
-	        "ПФМ Брака_DB_1".BoardsInLayCounter := #SetNumPlanksInLayerBrak;
+	        "ПФМ Брака_DB".BoardsInLayCounter := #SetNumPlanksInLayerBrak;
 	        
 	        #PackBrakParamChanged := FALSE;
 	    END_IF;
@@ -455,13 +455,13 @@ BEGIN
 	        #Alarm_List[139] := "EvaluationZoneThrowOFF_DB".FaultGhostBoard; // ошибка очереди на зоне оценки
 	        #Alarm_List[140] := NOT "QueueController_DB".Calibrated; // линейка не откалибрована
 	        #Alarm_List[141] := "Сортировка_DB".AlarmNotReadedPack; // ошибка чтения пакета ПФМ
-	        #Alarm_List[142] := "ПФМ Брака_DB_1".AlarmNotReadedPack; // ошибка чтения пакета ПФМ брака
-	        #Alarm_List[143] := "ПФМ Брака_DB_1".AlarmExtraBoardInLay; //ошибка лишняя доска на слой пфм брака
+	        #Alarm_List[142] := "ПФМ Брака_DB".AlarmNotReadedPack; // ошибка чтения пакета ПФМ брака
+	        #Alarm_List[143] := "ПФМ Брака_DB".AlarmExtraBoardInLay; //ошибка лишняя доска на слой пфм брака
 	        #Alarm_List[144] := "FB_Gasket_Carousel_DB".ALM_SensLastHook;  // "FB_SetGaskets_DB".ALM_LargeOffset; // ошибка переезда карусели
 	        #Alarm_List[145] := "FB_Gasket_Carousel_DB".ALM_SensHook; // "FB_SetGaskets_DB".ALM_SensHook; // сбой датчика крюков на карусели
 	        #Alarm_List[146] := "QueueController_DB".AlarmCount; // ошибка счета ПФМ
-	        #Alarm_List[147] := "ПФМ Брака_DB_1".AlarmNoPacketPushed; //авария не забрали пакет с пфм брака
-	        #Alarm_List[148] := "ПФМ Брака_DB_1".AwaitGasket; // ожидаем прокладку на пфм брака
+	        #Alarm_List[147] := "ПФМ Брака_DB".AlarmNoPacketPushed; //авария не забрали пакет с пфм брака
+	        #Alarm_List[148] := "ПФМ Брака_DB".AwaitGasket; // ожидаем прокладку на пфм брака
 	        
 	        
 	    END_REGION
